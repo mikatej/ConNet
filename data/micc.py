@@ -43,44 +43,36 @@ class MICC(Dataset):
 
         self.types = ["Flow", "Groups", "Queue"]
 
-        file_path = osp.join(self.data_path, '%s', '%s', '%s')
-        no_csv_count = 0
+        file_path = osp.join(self.data_path, '%s', '%s', '%s.csv')
 
         for t in self.types:            
-            images = glob.glob(file_path % (t, 'depth', '*'))
+            csv_files = glob.glob(file_path % (t, 'csv', '*'))
 
-            for img in images:
-                file_id = img[img.rfind('\\') + 1:img.find(".png")]
+            for csv_file in csv_files:
+                file_id = csv_file[csv_file.rfind('\\') + 1:
+                                    csv_file.find(".csv")]
 
                 image_id =  t + "_" + file_id + ".png"
 
-                csv_id = file_id + ".csv"
-                csv_path = file_path % (t, 'csv', csv_id)
+                csv_path = file_path % (t, 'csv', file_id)
+                with open(csv_path, newline='') as f:
+                    reader = csv.reader(f)
+                    data = np.float_(list(reader))
 
-                try:
-                    with open(csv_path, newline='') as f:
-                        reader = csv.reader(f)
-                        data = np.float_(list(reader))
+                    convertedData = []
+                    for d in data:
+                        if (d != []):
+                            x = d[2] / 2. + d[0]
+                            y = d[3] / 2. + d[1]
 
-                        convertedData = []
-                        for d in data:
-                            if (d != []):
-                                x = d[2] / 2. + d[0]
-                                y = d[3] / 2. + d[1]
+                            convertedData.append([x, y])
+                    
+                    self.ids.append(image_id)
+                    self.targets.append(convertedData)
 
-                                convertedData.append([x, y])
-                        
-                        self.ids.append(image_id)
-                        self.targets.append(convertedData)
-
-                except Exception as e: 
                     print(image_id)
-                    print("ERROR: ", e)
+                    print(convertedData)
                     print()
-                    no_csv_count += 1
-
-        print("Image files without .DAT/.CSV: ", no_csv_count)
-        print()
 
 
     def __len__(self):
