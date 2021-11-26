@@ -1,15 +1,16 @@
 import os.path as osp
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import TensorDataset
 import cv2
 import os 
 import glob
 import numpy as np
 import csv
+import h5py
 
 from collections import Counter
 
-class MallDataset(Dataset):
+class MallDataset(TensorDataset):
 
     def __init__(self,
                  data_path,
@@ -35,27 +36,18 @@ class MallDataset(Dataset):
         self.targets = []
 
         if self.mode == 'train':
-            self.image_path = osp.join(self.data_path, 'train')
+            self.image_path = osp.join(self.data_path, 'train', '%s')
         elif self.mode == 'val':
-            self.image_path = osp.join(self.data_path, 'val')
+            self.image_path = osp.join(self.data_path, 'val', '%s')
         elif self.mode == 'test':
-            self.image_path = osp.join(self.data_path, 'test')
+            self.image_path = osp.join(self.data_path, 'test', '%s')
 
-        image_path = osp.join(self.image_path, '*.jpg')
-        images = glob.glob(image_path)
+        image_path = self.image_path % '*.jpg'
+        self.images = glob.glob(image_path)
 
-        for img in images:
-            image_id = img[img.rfind('\\') + 1:]
-            self.ids.append(image_id)
+        self.ids = [img[img.rfind('\\') + 1:] for img in self.images]
+        self.targets = [i.replace('jpg', 'h5') for i in self.ids]
 
-            csv_id = image_id[:image_id.find(".jpg")] + ".csv"
-            csv_path = osp.join(self.image_path, csv_id)
-
-            with open(csv_path, newline='') as f:
-                reader = csv.reader(f)
-                data = np.float_(list(reader)[1:])
-                
-                self.targets.append(data)
 
     def __len__(self):
         """Returns number of data in the dataset
@@ -126,6 +118,19 @@ class MallDataset(Dataset):
         	list -- list of x- and y-coordinates of the people in an image from
         	the dataset
         """
+
+        target = self.targets[index]
+        target_path = self.image_path % target
+
+        target = h5py.File(target_path, 'r')
+        target = target['density']
+        target = np.array(target)
+
+        out_size = (target.shape[1] // 4, target.shape[0] // 4)
+        target = cv2.resize(target, out_size)
+        return torch.unsqueeze(torch.from_numpy(target), 0)
+
+
         return self.targets[index]
 
     def pull_tensor(self, index):
