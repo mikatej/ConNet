@@ -88,10 +88,15 @@ if __name__ == '__main__':
                         help='Number of input channels')
     parser.add_argument('--class_count', type=int, default=102,
                         help='Number of classes in dataset')
-    parser.add_argument('--dataset', type=str, default='ip102',
+
+    parser.add_argument('--dataset', type=str, default='mall',
                         choices=['ip102', 'grocery_store', 'imagenet', 'sd',
-                                 'chestxray8'],
+                                 'chestxray8', 'micc', 'mall'],
                         help='Dataset to use')
+    parser.add_argument('--dataset_subcategory', type=str, default='flow',
+                        choices=['flow', 'groups', 'queue'],
+                        help='(If MICC) dataset sequence to use')
+
     parser.add_argument('--new_size', type=int, default=224,
                         help='New height and width of input images')
     parser.add_argument('--means', type=tuple, default=(104, 117, 123),
@@ -106,13 +111,13 @@ if __name__ == '__main__':
                         help='Momentum')
     parser.add_argument('--weight_decay', type=float, default=0.0005,
                         help='Weight decay')
-    parser.add_argument('--num_epochs', type=int, default=120,
+    parser.add_argument('--num_epochs', type=int, default=1,
                         help='Number of epochs')
     parser.add_argument('--learning_sched', type=list, default=[100, 110],
                         help='List of epochs to reduce the learning rate')
-    parser.add_argument('--batch_size', type=int, default=64,
+    parser.add_argument('--batch_size', type=int, default=8,
                         help='Batch size')
-    parser.add_argument('--model', type=str, default='ResNet50',
+    parser.add_argument('--model', type=str, default='CAN',
                         choices=['AlexNet', 'GoogleNet',
                                  'VGG16', 'VGG16_BN', 'VGG19', 'VGG19_BN',
                                  'ResNet18', 'ResNet34', 'ResNet50',
@@ -140,6 +145,16 @@ if __name__ == '__main__':
                         default='../../Datasets/ip102_v1.1/',
                         help='IP102 dataset path')
 
+    # mall dataset
+    parser.add_argument('--mall_data_path', type=str,
+                        default='Datasets/mall_dataset/',
+                        help='Mall dataset path')
+
+    # micc dataset
+    parser.add_argument('--micc_data_path', type=str,
+                        default='Datasets/MICC/',
+                        help='MICC dataset path')
+
     # path
     parser.add_argument('--model_save_path', type=str, default='./weights',
                         help='Path for saving weights')
@@ -148,7 +163,12 @@ if __name__ == '__main__':
 
     # epoch step size
     parser.add_argument('--loss_log_step', type=int, default=1)
-    parser.add_argument('--model_save_step', type=int, default=10)
+    parser.add_argument('--model_save_step', type=int, default=1)
+
+    # models num pooling layers
+    parser.add_argument('--CSRNet_pool_num', type=int, default=3)
+    parser.add_argument('--MCNN_pool_num', type=int, default=2)
+    parser.add_argument('--CAN_pool_num', type=int, default=3)
 
     config = parser.parse_args()
 
