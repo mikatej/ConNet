@@ -13,6 +13,7 @@ class MICC(Dataset):
 
     def __init__(self,
                  data_path,
+                 dataset_subcategory,
                  mode,
                  new_size,
                  image_transform=None):
@@ -30,49 +31,26 @@ class MICC(Dataset):
         self.mode = mode
         self.new_size = new_size
         self.image_transform = image_transform
+        self.dataset_subcategory = dataset_subcategory
 
         self.ids = []
         self.targets = []
 
-        # if self.mode == 'train':
-        #     self.image_path = osp.join(self.data_path, 'train')
-        # elif self.mode == 'val':
-        #     self.image_path = osp.join(self.data_path, 'val')
-        # elif self.mode == 'test':
-        #     self.image_path = osp.join(self.data_path, 'test')
+        file_path = osp.join(self.data_path, self.dataset_subcategory)
 
-        self.types = ["Flow", "Groups", "Queue"]
+        if self.mode == 'train':
+            list_path = osp.join(file_path, self.dataset_subcategory + "_train.txt")
+        elif self.mode == 'val':
+            list_path = osp.join(file_path, self.dataset_subcategory + "_validation.txt")
+        elif self.mode == 'test':
+            list_path = osp.join(file_path, self.dataset_subcategory + "_testing.txt")
 
-        file_path = osp.join(self.data_path, '%s', '%s', '%s.csv')
+        image_list = open(list_path, 'r').read()
+        self.ids = image_list.split('\n')
 
-        for t in self.types:            
-            csv_files = glob.glob(file_path % (t, 'csv', '*'))
-
-            for csv_file in csv_files:
-                file_id = csv_file[csv_file.rfind('\\') + 1:
-                                    csv_file.find(".csv")]
-
-                image_id =  t + "_" + file_id + ".png"
-
-                csv_path = file_path % (t, 'csv', file_id)
-                with open(csv_path, newline='') as f:
-                    reader = csv.reader(f)
-                    data = np.float_(list(reader))
-
-                    convertedData = []
-                    for d in data:
-                        if (d != []):
-                            x = d[2] / 2. + d[0]
-                            y = d[3] / 2. + d[1]
-
-                            convertedData.append([x, y])
-                    
-                    self.ids.append(image_id)
-                    self.targets.append(convertedData)
-
-                    print(image_id)
-                    print(convertedData)
-                    print()
+        self.image_path = osp.join(file_path, 'RGB')
+        self.target_path = osp.join(file_path, 'h5py')
+        self.targets = [i.replace('.png', '.h5') for i in self.ids]
 
 
     def __len__(self):
@@ -112,14 +90,19 @@ class MICC(Dataset):
         image_id = self.ids[index]
 
         image = cv2.imread(self.image_path % image_id)
-        target = self.targets[index]
+        target = self.pull_target(index)
         height, width, _ = image.shape
 
         if self.image_transform is not None:
             image, target = self.image_transform(image, target)
             image = image[:, :, (2, 1, 0)]
 
-        return torch.from_numpy(image).permute(2, 0, 1), target, height, width
+
+        out_size = (target.shape[1] // self.targets_resize, target.shape[0] // self.targets_resize)
+        target = cv2.resize(target, out_size)
+
+        return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0), height, width
+
 
     def pull_image(self, index):
         """Returns an image from the dataset represented as an ndarray
@@ -144,7 +127,14 @@ class MICC(Dataset):
             list -- list of x- and y-coordinates of the people in an image from
             the dataset
         """
-        return self.targets[index]
+        target = self.targets[index]
+        target_path = self.target_path % target
+
+        target = h5py.File(target_path, 'r')
+        target = target['density']
+        target = np.array(target)
+
+        return target # torch.unsqueeze(torch.from_numpy(target), 0)
 
     def pull_tensor(self, index):
         """Returns an image from the dataset represented as a tensor
