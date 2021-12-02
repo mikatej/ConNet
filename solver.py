@@ -10,7 +10,7 @@ from utils.utils import to_var, write_print
 from sklearn.metrics import (accuracy_score, balanced_accuracy_score,
                              f1_score)
 from utils.timer import Timer
-
+import numpy as np
 
 class Solver(object):
 
@@ -46,7 +46,8 @@ class Solver(object):
                                self.class_count)
 
         # instantiate loss criterion
-        self.criterion = nn.CrossEntropyLoss()
+        # self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.MSELoss() #.cuda()
 
         # instantiate optimizer
         self.optimizer = optim.SGD(self.model.parameters(),
@@ -138,8 +139,21 @@ class Solver(object):
         # forward pass
         output = self.model(images)
 
+        # print(output.size(), "|", labels.size())
+        # print(output[0])
+        # print()
+        # print(labels[0])
+
+        # print()
+        # print(output.shape, "|", labels.shape)
+        # print(type(output))
+        # print(type(output[0]))
+        # print(output.squeeze()[0].size())
+        # print((labels.squeeze()[0].size()))
+        # print()
+
         # compute loss
-        loss = self.criterion(output, labels.squeeze())
+        loss = self.criterion(output.squeeze(), labels.squeeze())
 
         # compute gradients using back propagation
         loss.backward()
@@ -173,9 +187,13 @@ class Solver(object):
         for e in range(start, self.num_epochs):
             for i, (images, labels) in enumerate(tqdm(self.data_loader)):
                 images = to_var(images, self.use_gpu)
-                labels = to_var(torch.LongTensor(labels), self.use_gpu)
+
+                # labels = to_var(torch.tensor(labels), self.use_gpu)
+                labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
+                labels = torch.stack(labels)
 
                 loss = self.model_step(images, labels)
+                print("\t{:.6f}".format(loss.item()))
 
             # print out loss log
             if (e + 1) % self.loss_log_step == 0:

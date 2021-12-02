@@ -87,7 +87,7 @@ class ConvertToFloat(object):
             corresponding class of the image
         """
 
-        return image.astype(np.float32), label
+        return image.astype(np.float32), label.astype(np.float32)
 
 
 class SubtractMeans(object):
@@ -156,6 +156,7 @@ class Resize(object):
         """
 
         image = cv2.resize(image, (self.size, self.size))
+        label = cv2.resize(label, (self.size, self.size))
         return image, label
 
 
@@ -536,6 +537,7 @@ class RandomSampleCrop(object):
             top_y = np.random.randint(top_y_range[0], top_y_range[1])
 
             image = image[top_y:top_y + size, top_x:top_x + size, :]
+            label = label[top_y:top_y + size, top_x:top_x + size]
 
         return image, label
 
@@ -568,6 +570,7 @@ class RandomMirror(object):
 
         if random.randint(2):
             image = image[:, ::-1, :]
+            label = label[:, ::-1]
 
         return image, label
 
@@ -732,4 +735,6 @@ class BaseTransform(object):
         image = cv2.resize(image, dimensions).astype(np.float32)
         image -= self.mean
         image = image.astype(np.float32)
+
+        label = cv2.resize(image, dimensions).astype(np.float32)
         return image, label
