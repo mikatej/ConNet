@@ -8,7 +8,7 @@ from tqdm import tqdm
 from models.model import get_model
 from utils.utils import to_var, write_print
 from sklearn.metrics import (accuracy_score, balanced_accuracy_score,
-                             f1_score)
+                             f1_score, mean_squared_error, mean_absolute_error)
 from utils.timer import Timer
 import numpy as np
 
@@ -103,7 +103,7 @@ class Solver(object):
         elapsed = str(datetime.timedelta(seconds=elapsed))
 
         log = "Elapsed {}/{} -- {}, Epoch [{}/{}], Iter [{}/{}], " \
-              "loss: {:.4f}".format(elapsed,
+              "loss: {:.6f}".format(elapsed,
                                     epoch_time,
                                     total_time,
                                     e + 1,
@@ -193,7 +193,7 @@ class Solver(object):
                 labels = torch.stack(labels)
 
                 loss = self.model_step(images, labels)
-                print("\t{:.6f}".format(loss.item()))
+                # print("\t{:.6f}".format(loss.item()))
 
             # print out loss log
             if (e + 1) % self.loss_log_step == 0:
@@ -214,7 +214,7 @@ class Solver(object):
         # print losses
         write_print(self.output_txt, '\n--Losses--')
         for e, loss in self.losses:
-            write_print(self.output_txt, str(e) + ' {:.4f}'.format(loss))
+            write_print(self.output_txt, str(e) + ' {:.6f}'.format(loss))
 
         # print top_1_acc
         write_print(self.output_txt, '\n--Top 1 accuracy--')
@@ -241,34 +241,52 @@ class Solver(object):
         timer = Timer()
         elapsed = 0
 
+        mae_list = []
+        mse_list = []
+
+        mae = 0
+        mse = 0
+
         with torch.no_grad():
             for images, labels in tqdm(data_loader):
-
                 images = to_var(images, self.use_gpu)
-                labels = to_var(torch.LongTensor(labels), self.use_gpu)
+
+                labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
+                labels = torch.stack(labels)
 
                 timer.tic()
                 output = self.model(images)
                 elapsed += timer.toc(average=False)
 
-                _, top_1_output = torch.max(output.data, dim=1)
+                # _, top_1_output = torch.max(output.data, dim=1)
                 # out.append(str(sm(output.data).tolist()))
                 y_true = torch.cat((y_true, labels))
-                y_pred = torch.cat((y_pred, top_1_output))
+                y_pred = torch.cat((y_pred, output))
+
+                # mae_list.append(mean_absolute_error(labels.item(), output.item()))
+                # mse_list.append(mean_squared_error(labels.item(), output.item()))
+
+                mae += abs(output.data.sum() - labels.data.sum()).item()
+                mse += ((labels.data.sum() - output.data.sum())*(labels.data.sum() - output.data.sum())).item()
+
 
         y_true = y_true.cpu()
         y_pred = y_pred.cpu()
 
-        acc = accuracy_score(y_true, y_pred)
-        b_acc = balanced_accuracy_score(y_true, y_pred)
-        labels = [x for x in range(self.class_count)]
+        # acc = accuracy_score(y_true, y_pred)
+        # b_acc = balanced_accuracy_score(y_true, y_pred)
 
-        f1_mi = f1_score(y_true, y_pred, labels=labels, average='micro')
-        f1_ma = f1_score(y_true, y_pred, labels=labels, average='macro')
-        f1_w = f1_score(y_true, y_pred, labels=labels, average='weighted')
-        fps = y_true.shape[0] / elapsed
+        print(mae_list)
+        mae = mae / len(data_loader)
+        mse = np.sqrt(mse / len(data_loader))
+        # labels = [x for x in range(self.class_count)]
 
-        return acc, b_acc, f1_mi, f1_ma, f1_w, fps
+        # f1_mi = f1_score(y_true, y_pred, labels=labels, average='micro')
+        # f1_ma = f1_score(y_true, y_pred, labels=labels, average='macro')
+        # f1_w = f1_score(y_true, y_pred, labels=labels, average='weighted')
+        fps = len(data_loader) / elapsed
+
+        return mae, mse, fps
 
     def pred(self):
 
@@ -314,8 +332,7 @@ class Solver(object):
         Evaluates the performance of the model using the test dataset
         """
         out = self.eval(self.data_loader)
-        log = ('acc: {:.4f}, b_acc: {:.4f}, '
-               'f1_micro: {:.4f}, f1_macro: {:.4f}, f1_weight: {:.4f}, '
+        log = ('mae: {:.6f}, mse: {:.6f}, '
                'fps: {:.4f}')
-        log = log.format(out[0], out[1], out[2], out[3], out[4], out[5])
+        log = log.format(out[0], out[1], out[2])
         write_print(self.output_txt, log)
