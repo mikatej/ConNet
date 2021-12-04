@@ -115,11 +115,6 @@ class Solver(object):
 
         write_print(self.output_txt, log)
 
-        write_to_file(self.compile_txt, 'epoch {} | {}'.format(e, log))
-
-        if (e == '5'):
-            write_to_file(self.compile_txt, '')
-
     def save_model(self, e):
         """
         Saves a model per e epoch
@@ -144,19 +139,6 @@ class Solver(object):
 
         # forward pass
         output = self.model(images)
-
-        # print(output.size(), "|", labels.size())
-        # print(output[0])
-        # print()
-        # print(labels[0])
-
-        # print()
-        # print(output.shape, "|", labels.shape)
-        # print(type(output))
-        # print(type(output[0]))
-        # print(output.squeeze()[0].size())
-        # print((labels.squeeze()[0].size()))
-        # print()
 
         # compute loss
         loss = self.criterion(output.squeeze(), labels.squeeze())
@@ -247,9 +229,6 @@ class Solver(object):
         timer = Timer()
         elapsed = 0
 
-        mae_list = []
-        mse_list = []
-
         mae = 0
         mse = 0
 
@@ -269,27 +248,15 @@ class Solver(object):
                 y_true = torch.cat((y_true, labels))
                 y_pred = torch.cat((y_pred, output))
 
-                # mae_list.append(mean_absolute_error(labels.item(), output.item()))
-                # mse_list.append(mean_squared_error(labels.item(), output.item()))
-
-                mae += abs(output.data.sum() - labels.data.sum()).item()
-                mse += ((labels.data.sum() - output.data.sum())*(labels.data.sum() - output.data.sum())).item()
+                mae += abs(output.sum() - labels.sum()).item()
+                mse += ((labels.sum() - output.sum())*(labels.sum() - output.sum())).item()
 
 
         y_true = y_true.cpu()
         y_pred = y_pred.cpu()
 
-        # acc = accuracy_score(y_true, y_pred)
-        # b_acc = balanced_accuracy_score(y_true, y_pred)
-
-        print(mae_list)
         mae = mae / len(data_loader)
         mse = np.sqrt(mse / len(data_loader))
-        # labels = [x for x in range(self.class_count)]
-
-        # f1_mi = f1_score(y_true, y_pred, labels=labels, average='micro')
-        # f1_ma = f1_score(y_true, y_pred, labels=labels, average='macro')
-        # f1_w = f1_score(y_true, y_pred, labels=labels, average='weighted')
         fps = len(data_loader) / elapsed
 
         return mae, mse, fps
