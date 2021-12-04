@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 from models.model import get_model
-from utils.utils import to_var, write_print
+from utils.utils import to_var, write_print, write_to_file
 from sklearn.metrics import (accuracy_score, balanced_accuracy_score,
                              f1_score, mean_squared_error, mean_absolute_error)
 from utils.timer import Timer
@@ -16,7 +16,7 @@ class Solver(object):
 
     DEFAULTS = {}
 
-    def __init__(self, version, data_loader, config, output_txt):
+    def __init__(self, version, data_loader, config, output_txt, compile_txt):
         """
         Initializes a Solver object
         """
@@ -26,6 +26,7 @@ class Solver(object):
         self.version = version
         self.data_loader = data_loader
         self.output_txt = output_txt
+        self.compile_txt = compile_txt
 
         self.build_model()
 
@@ -113,6 +114,11 @@ class Solver(object):
                                     loss)
 
         write_print(self.output_txt, log)
+
+        write_to_file(self.compile_txt, 'epoch {} | {}'.format(e, log))
+
+        if (e == '5'):
+            write_to_file(self.compile_txt, '')
 
     def save_model(self, e):
         """
@@ -336,3 +342,9 @@ class Solver(object):
                'fps: {:.4f}')
         log = log.format(out[0], out[1], out[2])
         write_print(self.output_txt, log)
+
+        epoch_num = self.output_txt[self.output_txt.rfind('_')+1:-4]
+        write_to_file(self.compile_txt, 'epoch {} | {}'.format(epoch_num, log))
+
+        if (epoch_num == '5'):
+            write_to_file(self.compile_txt, '')

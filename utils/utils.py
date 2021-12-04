@@ -25,3 +25,14 @@ def write_print(path, text):
     file.write(text + '\n')
     file.close()
     print(text)
+
+def write_to_file(path, text):
+    """Saves text in text file
+
+    Arguments:
+        path {string} -- path to text file
+        text {string} -- text to save
+    """
+    file = open(path, 'a')
+    file.write(text + '\n')
+    file.close()
