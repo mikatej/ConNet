@@ -22,9 +22,9 @@ def get_loader(config):
     targets_resize = 1
 
     if config.model == 'CSRNet' or config.model == 'CAN':
-        targets_resize = 2 ** config.CSRNet_pool_num
+        targets_resize = 2 ** 3
     elif config.model == 'MCNN':
-        targets_resize = 2 ** config.MCNN_pool_num
+        targets_resize = 2 ** 2
 
     if config.dataset == 'ip102':
 
