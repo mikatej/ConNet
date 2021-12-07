@@ -104,7 +104,7 @@ class Solver(object):
         elapsed = str(datetime.timedelta(seconds=elapsed))
 
         log = "Elapsed {}/{} -- {}, Epoch [{}/{}], Iter [{}/{}], " \
-              "loss: {:.6f}".format(elapsed,
+              "loss: {:.10f}".format(elapsed,
                                     epoch_time,
                                     total_time,
                                     e + 1,
@@ -161,14 +161,22 @@ class Solver(object):
         self.top_5_acc = []
 
         iters_per_epoch = len(self.data_loader)
+        sched = 0
 
         # start with a trained model if exists
         if self.pretrained_model:
             start = int(self.pretrained_model.split('/')[-1])
+
+            for x in self.learning_sched:
+                if start >= x:
+                    sched +=1
+                    self.lr /= 10
+                else:
+                    break
+
+            print("LEARNING RATE: ", self.lr, sched)
         else:
             start = 0
-
-        sched = 0
 
         # start training
         start_time = time.time()
@@ -194,7 +202,8 @@ class Solver(object):
 
             num_sched = len(self.learning_sched)
             if num_sched != 0 and sched < num_sched:
-                if (e + 1) == self.learning_sched[sched]:
+                # if (e + 1) == self.learning_sched[sched]:
+                if (e + 1) in self.learning_sched:
                     self.lr /= 10
                     print('Learning rate reduced to', self.lr)
                     sched += 1
@@ -202,7 +211,7 @@ class Solver(object):
         # print losses
         write_print(self.output_txt, '\n--Losses--')
         for e, loss in self.losses:
-            write_print(self.output_txt, str(e) + ' {:.6f}'.format(loss))
+            write_print(self.output_txt, str(e) + ' {:.10f}'.format(loss))
 
         # print top_1_acc
         write_print(self.output_txt, '\n--Top 1 accuracy--')
