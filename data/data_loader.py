@@ -65,7 +65,9 @@ def get_loader(config):
                             dataset_subcategory=config.dataset_subcategory,
                             mode='train',
                             new_size=config.new_size,
-                            image_transform=image_transform)
+                            density_sigma=config.density_sigma,
+                            image_transform=image_transform,
+                            targets_resize=targets_resize)
 
         elif config.mode == 'val':
             image_transform = BaseTransform(config.new_size, config.means)
@@ -73,7 +75,9 @@ def get_loader(config):
                             dataset_subcategory=config.dataset_subcategory,
                             mode='val',
                             new_size=config.new_size,
-                            image_transform=image_transform)
+                            density_sigma=config.density_sigma,
+                            image_transform=image_transform,
+                            targets_resize=targets_resize)
 
         elif config.mode == 'test' or config.mode == 'pred':
             image_transform = BaseTransform(config.new_size, config.means)
@@ -81,7 +85,9 @@ def get_loader(config):
                             dataset_subcategory=config.dataset_subcategory,
                             mode='test',
                             new_size=config.new_size,
-                            image_transform=image_transform)
+                            density_sigma=config.density_sigma,
+                            image_transform=image_transform,
+                            targets_resize=targets_resize)
 
     if config.dataset == 'mall':
 
@@ -94,6 +100,7 @@ def get_loader(config):
             dataset = MallDataset(data_path=config.mall_data_path,
                             mode='train',
                             new_size=config.new_size,
+                            density_sigma=config.density_sigma,
                             image_transform=image_transform,
                             targets_resize=targets_resize)
 
@@ -102,6 +109,7 @@ def get_loader(config):
             dataset = MallDataset(data_path=config.mall_data_path,
                             mode='val',
                             new_size=config.new_size,
+                            density_sigma=config.density_sigma,
                             image_transform=image_transform,
                             targets_resize=targets_resize)
 
@@ -110,6 +118,7 @@ def get_loader(config):
             dataset = MallDataset(data_path=config.mall_data_path,
                             mode='test',
                             new_size=config.new_size,
+                            density_sigma=config.density_sigma,
                             image_transform=image_transform,
                             targets_resize=targets_resize)
 

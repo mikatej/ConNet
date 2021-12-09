@@ -16,6 +16,7 @@ class MallDataset(TensorDataset):
                  data_path,
                  mode,
                  new_size,
+                 density_sigma,
                  image_transform=None,
                  targets_resize=1):
         """Initializes the dataset
@@ -48,9 +49,7 @@ class MallDataset(TensorDataset):
         images = glob.glob(image_path)
 
         self.ids = [img[img.rfind('\\') + 1:] for img in images]
-        self.targets = [i.replace('jpg', 'h5') for i in self.ids]
-
-
+        self.targets = [i.replace(self.mode, density_sigma).replace('jpg', 'h5') for i in self.ids]
 
 
     def __len__(self):

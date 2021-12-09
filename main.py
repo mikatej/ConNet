@@ -88,7 +88,6 @@ if __name__ == '__main__':
                         help='Number of input channels')
     parser.add_argument('--class_count', type=int, default=102,
                         help='Number of classes in dataset')
-
     parser.add_argument('--dataset', type=str, default='mall',
                         choices=['ip102', 'grocery_store', 'imagenet', 'sd',
                                  'chestxray8', 'micc', 'mall'],
@@ -96,6 +95,9 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_subcategory', type=str, default='flow',
                         choices=['flow', 'groups', 'queue'],
                         help='(If MICC) dataset sequence to use')
+    parser.add_argument('--density_sigma', type=str, default='h5py-3',
+                        choices=['h5py-3']
+                        help='Sigma value for density maps')
 
     parser.add_argument('--new_size', type=int, default=224,
                         help='New height and width of input images')
@@ -117,7 +119,7 @@ if __name__ == '__main__':
                         help='List of epochs to reduce the learning rate')
     parser.add_argument('--batch_size', type=int, default=8,
                         help='Batch size')
-    parser.add_argument('--model', type=str, default='CAN',
+    parser.add_argument('--model', type=str, default='MCNN',
                         choices=['AlexNet', 'GoogleNet',
                                  'VGG16', 'VGG16_BN', 'VGG19', 'VGG19_BN',
                                  'ResNet18', 'ResNet34', 'ResNet50',
@@ -147,12 +149,12 @@ if __name__ == '__main__':
 
     # mall dataset
     parser.add_argument('--mall_data_path', type=str,
-                        default='Datasets/mall_dataset/',
+                        default='../Datasets/mall_dataset/',
                         help='Mall dataset path')
 
     # micc dataset
     parser.add_argument('--micc_data_path', type=str,
-                        default='Datasets/MICC/',
+                        default='../Datasets/MICC/',
                         help='MICC dataset path')
 
     # path

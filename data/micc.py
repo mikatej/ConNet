@@ -16,7 +16,9 @@ class MICC(Dataset):
                  dataset_subcategory,
                  mode,
                  new_size,
-                 image_transform=None):
+                 density_sigma,
+                 image_transform=None,
+                 targets_resize=1):
         """Initializes the dataset
 
         Arguments:
@@ -32,6 +34,7 @@ class MICC(Dataset):
         self.new_size = new_size
         self.image_transform = image_transform
         self.dataset_subcategory = dataset_subcategory
+        self.targets_resize = targets_resize
 
         self.ids = []
         self.targets = []
@@ -49,7 +52,7 @@ class MICC(Dataset):
         self.ids = image_list.split('\n')
 
         self.image_path = osp.join(file_path, 'RGB')
-        self.target_path = osp.join(file_path, 'h5py')
+        self.target_path = osp.join(file_path, density_sigma)
         self.targets = [i.replace('.png', '.h5') for i in self.ids]
 
 
