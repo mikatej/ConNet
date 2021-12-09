@@ -88,14 +88,14 @@ if __name__ == '__main__':
                         help='Number of input channels')
     parser.add_argument('--class_count', type=int, default=102,
                         help='Number of classes in dataset')
-    parser.add_argument('--dataset', type=str, default='mall',
+    parser.add_argument('--dataset', type=str, default='micc',
                         choices=['micc', 'mall'],
                         help='Dataset to use')
     parser.add_argument('--dataset_subcategory', type=str, default='flow',
                         choices=['flow', 'groups', 'queue'],
                         help='(If MICC) dataset sequence to use')
     parser.add_argument('--density_sigma', type=str, default='h5py-3',
-                        choices=['h5py-3']
+                        choices=['h5py-3'],
                         help='Sigma value for density maps')
 
     parser.add_argument('--new_size', type=int, default=224,
@@ -112,13 +112,13 @@ if __name__ == '__main__':
                         help='Momentum')
     parser.add_argument('--weight_decay', type=float, default=0.0005,
                         help='Weight decay')
-    parser.add_argument('--num_epochs', type=int, default=200,
+    parser.add_argument('--num_epochs', type=int, default=1,
                         help='Number of epochs')
-    parser.add_argument('--learning_sched', type=list, default=list(range(0, 200, 10)),
+    parser.add_argument('--learning_sched', type=list, default=[],
                         help='List of epochs to reduce the learning rate')
     parser.add_argument('--batch_size', type=int, default=4,
                         help='Batch size')
-    parser.add_argument('--model', type=str, default='NLT',
+    parser.add_argument('--model', type=str, default='MARUNet',
                         choices=['CSRNet', 'MCNN', 'NLT', 'MARUNet'],
                         help='CNN model to use')
     parser.add_argument('--backbone_model', type=str, default='vgg16',

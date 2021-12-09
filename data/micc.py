@@ -6,6 +6,7 @@ import os
 import glob
 import numpy as np
 import csv
+import h5py
 
 from collections import Counter
 
@@ -51,10 +52,9 @@ class MICC(Dataset):
         image_list = open(list_path, 'r').read()
         self.ids = image_list.split('\n')
 
-        self.image_path = osp.join(file_path, 'RGB')
-        self.target_path = osp.join(file_path, density_sigma)
+        self.image_path = osp.join(file_path, 'RGB', '%s')
+        self.target_path = osp.join(file_path, density_sigma, '%s')
         self.targets = [i.replace('.png', '.h5') for i in self.ids]
-
 
     def __len__(self):
         """Returns number of data in the dataset

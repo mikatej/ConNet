@@ -11,8 +11,6 @@ class Conv2d(nn.Module):
         self.bn = nn.BatchNorm2d(out_channels, eps=0.001, momentum=0, affine=True) if bn else None
         self.relu = nn.ReLU(inplace=True) if relu else None
 
-        network.weights_normal_init(net, dev=0.01)
-
     def forward(self, x):
         x = self.conv(x)
         if self.bn is not None:

@@ -1,5 +1,4 @@
 import torch
-from data.ip102 import IP102
 from data.mall_dataset import MallDataset
 from data.micc import MICC
 from torch.utils.data import DataLoader
