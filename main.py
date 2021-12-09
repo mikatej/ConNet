@@ -60,12 +60,12 @@ def string_to_boolean(v):
     return v.lower() in ('true')
 
 
-def main(version, config, output_txt):
+def main(version, config, output_txt, compile_txt):
     # for fast training
     cudnn.benchmark = True
 
     data_loader = get_loader(config)
-    solver = Solver(version, data_loader, vars(config), output_txt)
+    solver = Solver(version, data_loader, vars(config), output_txt, compile_txt)
 
     if config.mode == 'train':
         temp_save_path = os.path.join(config.model_save_path, version)
@@ -89,8 +89,7 @@ if __name__ == '__main__':
     parser.add_argument('--class_count', type=int, default=102,
                         help='Number of classes in dataset')
     parser.add_argument('--dataset', type=str, default='mall',
-                        choices=['ip102', 'grocery_store', 'imagenet', 'sd',
-                                 'chestxray8', 'micc', 'mall'],
+                        choices=['micc', 'mall'],
                         help='Dataset to use')
     parser.add_argument('--dataset_subcategory', type=str, default='flow',
                         choices=['flow', 'groups', 'queue'],
@@ -107,25 +106,24 @@ if __name__ == '__main__':
                         help='Toggles data augmentation')
 
     # training settings
-    parser.add_argument('--lr', type=float, default=0.001,
+    parser.add_argument('--lr', type=float, default=0.00001,
                         help='Learning rate')
     parser.add_argument('--momentum', type=float, default=0.9,
                         help='Momentum')
     parser.add_argument('--weight_decay', type=float, default=0.0005,
                         help='Weight decay')
-    parser.add_argument('--num_epochs', type=int, default=1,
+    parser.add_argument('--num_epochs', type=int, default=200,
                         help='Number of epochs')
-    parser.add_argument('--learning_sched', type=list, default=[100, 110],
+    parser.add_argument('--learning_sched', type=list, default=list(range(0, 200, 10)),
                         help='List of epochs to reduce the learning rate')
-    parser.add_argument('--batch_size', type=int, default=8,
+    parser.add_argument('--batch_size', type=int, default=4,
                         help='Batch size')
-    parser.add_argument('--model', type=str, default='MCNN',
-                        choices=['AlexNet', 'GoogleNet',
-                                 'VGG16', 'VGG16_BN', 'VGG19', 'VGG19_BN',
-                                 'ResNet18', 'ResNet34', 'ResNet50',
-                                 'ResNet101', 'ResNet152',
-                                 'DenseNet121', 'DenseNet169', 'DenseNet201'],
+    parser.add_argument('--model', type=str, default='NLT',
+                        choices=['CSRNet', 'MCNN', 'NLT', 'MARUNet'],
                         help='CNN model to use')
+    parser.add_argument('--backbone_model', type=str, default='vgg16',
+                        choices=['vgg16', 'ResNet50'],
+                        help='If NLT, which backbone model to use')
     parser.add_argument('--pretrained_model', type=str,
                         default=None,
                         help='Pre-trained model')
@@ -167,11 +165,6 @@ if __name__ == '__main__':
     parser.add_argument('--loss_log_step', type=int, default=1)
     parser.add_argument('--model_save_step', type=int, default=1)
 
-    # models num pooling layers
-    parser.add_argument('--CSRNet_pool_num', type=int, default=3)
-    parser.add_argument('--MCNN_pool_num', type=int, default=2)
-    parser.add_argument('--CAN_pool_num', type=int, default=3)
-
     config = parser.parse_args()
 
     args = vars(config)
@@ -183,6 +176,7 @@ if __name__ == '__main__':
         path = args['model_save_path']
         path = os.path.join(path, version)
         output_txt = os.path.join(path, '{}.txt'.format(version))
+        compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], version))
 
     elif args['mode'] == 'val':
         model = args['pretrained_model'].split('/')
@@ -190,6 +184,7 @@ if __name__ == '__main__':
         path = args['model_test_path']
         path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))
+        compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], model[0]))
 
     elif args['mode'] == 'test':
         model = args['pretrained_model'].split('/')
@@ -197,6 +192,7 @@ if __name__ == '__main__':
         path = args['model_test_path']
         path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))
+        compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], model[0]))
 
     elif args['mode'] == 'pred':
         model = args['pretrained_model'].split('/')
@@ -204,6 +200,8 @@ if __name__ == '__main__':
         path = args['model_test_path']
         path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))
+        compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], model[0]))
+
 
     mkdir(path)
     save_config(path, version, args)
@@ -213,4 +211,4 @@ if __name__ == '__main__':
         write_print(output_txt, '{}: {}'.format(str(k), str(v)))
     write_print(output_txt, '-------------- End ----------------')
 
-    main(version, config, output_txt)
+    main(version, config, output_txt, compile_txt)

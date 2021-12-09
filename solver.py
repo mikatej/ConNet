@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 from models.model import get_model
-from utils.utils import to_var, write_print
+from utils.utils import to_var, write_print, write_to_file
 from sklearn.metrics import (accuracy_score, balanced_accuracy_score,
                              f1_score, mean_squared_error, mean_absolute_error)
 from utils.timer import Timer
@@ -16,7 +16,7 @@ class Solver(object):
 
     DEFAULTS = {}
 
-    def __init__(self, version, data_loader, config, output_txt):
+    def __init__(self, version, data_loader, config, output_txt, compile_txt):
         """
         Initializes a Solver object
         """
@@ -26,6 +26,7 @@ class Solver(object):
         self.version = version
         self.data_loader = data_loader
         self.output_txt = output_txt
+        self.compile_txt = compile_txt
 
         self.build_model()
 
@@ -39,7 +40,9 @@ class Solver(object):
         """
 
         # instantiate model
+        self.model_name = self.model
         self.model = get_model(self.model,
+                               self.backbone_model,
                                self.imagenet_pretrain,
                                self.model_save_path,
                                self.input_channels,
@@ -103,7 +106,7 @@ class Solver(object):
         elapsed = str(datetime.timedelta(seconds=elapsed))
 
         log = "Elapsed {}/{} -- {}, Epoch [{}/{}], Iter [{}/{}], " \
-              "loss: {:.6f}".format(elapsed,
+              "loss: {:.10f}".format(elapsed,
                                     epoch_time,
                                     total_time,
                                     e + 1,
@@ -139,18 +142,8 @@ class Solver(object):
         # forward pass
         output = self.model(images)
 
-        # print(output.size(), "|", labels.size())
-        # print(output[0])
-        # print()
-        # print(labels[0])
-
-        # print()
-        # print(output.shape, "|", labels.shape)
-        # print(type(output))
-        # print(type(output[0]))
-        # print(output.squeeze()[0].size())
-        # print((labels.squeeze()[0].size()))
-        # print()
+        if self.model_name == 'MARUNet':
+            output = output[0]
 
         # compute loss
         loss = self.criterion(output.squeeze(), labels.squeeze())
@@ -173,14 +166,22 @@ class Solver(object):
         self.top_5_acc = []
 
         iters_per_epoch = len(self.data_loader)
+        sched = 0
 
         # start with a trained model if exists
         if self.pretrained_model:
             start = int(self.pretrained_model.split('/')[-1])
+
+            for x in self.learning_sched:
+                if start >= x:
+                    sched +=1
+                    self.lr /= 10
+                else:
+                    break
+
+            print("LEARNING RATE: ", self.lr, sched)
         else:
             start = 0
-
-        sched = 0
 
         # start training
         start_time = time.time()
@@ -206,7 +207,8 @@ class Solver(object):
 
             num_sched = len(self.learning_sched)
             if num_sched != 0 and sched < num_sched:
-                if (e + 1) == self.learning_sched[sched]:
+                # if (e + 1) == self.learning_sched[sched]:
+                if (e + 1) in self.learning_sched:
                     self.lr /= 10
                     print('Learning rate reduced to', self.lr)
                     sched += 1
@@ -214,7 +216,7 @@ class Solver(object):
         # print losses
         write_print(self.output_txt, '\n--Losses--')
         for e, loss in self.losses:
-            write_print(self.output_txt, str(e) + ' {:.6f}'.format(loss))
+            write_print(self.output_txt, str(e) + ' {:.10f}'.format(loss))
 
         # print top_1_acc
         write_print(self.output_txt, '\n--Top 1 accuracy--')
@@ -241,9 +243,6 @@ class Solver(object):
         timer = Timer()
         elapsed = 0
 
-        mae_list = []
-        mse_list = []
-
         mae = 0
         mse = 0
 
@@ -263,27 +262,15 @@ class Solver(object):
                 y_true = torch.cat((y_true, labels))
                 y_pred = torch.cat((y_pred, output))
 
-                # mae_list.append(mean_absolute_error(labels.item(), output.item()))
-                # mse_list.append(mean_squared_error(labels.item(), output.item()))
-
-                mae += abs(output.data.sum() - labels.data.sum()).item()
-                mse += ((labels.data.sum() - output.data.sum())*(labels.data.sum() - output.data.sum())).item()
+                mae += abs(output.sum() - labels.sum()).item()
+                mse += ((labels.sum() - output.sum())*(labels.sum() - output.sum())).item()
 
 
         y_true = y_true.cpu()
         y_pred = y_pred.cpu()
 
-        # acc = accuracy_score(y_true, y_pred)
-        # b_acc = balanced_accuracy_score(y_true, y_pred)
-
-        print(mae_list)
         mae = mae / len(data_loader)
         mse = np.sqrt(mse / len(data_loader))
-        # labels = [x for x in range(self.class_count)]
-
-        # f1_mi = f1_score(y_true, y_pred, labels=labels, average='micro')
-        # f1_ma = f1_score(y_true, y_pred, labels=labels, average='macro')
-        # f1_w = f1_score(y_true, y_pred, labels=labels, average='weighted')
         fps = len(data_loader) / elapsed
 
         return mae, mse, fps
@@ -336,3 +323,9 @@ class Solver(object):
                'fps: {:.4f}')
         log = log.format(out[0], out[1], out[2])
         write_print(self.output_txt, log)
+
+        epoch_num = self.output_txt[self.output_txt.rfind('_')+1:-4]
+        write_to_file(self.compile_txt, 'epoch {} | {}'.format(epoch_num, log))
+
+        if (epoch_num == '5'):
+            write_to_file(self.compile_txt, '')
