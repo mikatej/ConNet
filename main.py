@@ -104,23 +104,26 @@ if __name__ == '__main__':
                         help='Toggles data augmentation')
 
     # training settings
-    parser.add_argument('--lr', type=float, default=0.001,
+    parser.add_argument('--lr', type=float, default=0.00001,
                         help='Learning rate')
     parser.add_argument('--momentum', type=float, default=0.9,
                         help='Momentum')
     parser.add_argument('--weight_decay', type=float, default=0.0005,
                         help='Weight decay')
-    parser.add_argument('--num_epochs', type=int, default=5,
+    parser.add_argument('--num_epochs', type=int, default=200,
                         help='Number of epochs')
-    parser.add_argument('--learning_sched', type=list, default=[100, 110],
+    parser.add_argument('--learning_sched', type=list, default=list(range(0, 200, 10)),
                         help='List of epochs to reduce the learning rate')
-    parser.add_argument('--batch_size', type=int, default=8,
+    parser.add_argument('--batch_size', type=int, default=4,
                         help='Batch size')
-    parser.add_argument('--model', type=str, default='CSRNet',
-                        choices=['CSRNet', 'MCNN'],
+    parser.add_argument('--model', type=str, default='NLT',
+                        choices=['CSRNet', 'MCNN', 'NLT', 'MARUNet'],
                         help='CNN model to use')
+    parser.add_argument('--backbone_model', type=str, default='vgg16',
+                        choices=['vgg16', 'ResNet50'],
+                        help='If NLT, which backbone model to use')
     parser.add_argument('--pretrained_model', type=str,
-                        default='2021-12-02 16_53_30.264649_train/3',
+                        default=None,
                         help='Pre-trained model')
     parser.add_argument('--init_weights', type=string_to_boolean, default=True,
                         help='Toggles weight initialization')
@@ -129,7 +132,7 @@ if __name__ == '__main__':
                         help='Toggles pretrained weights for vision models')
 
     # misc
-    parser.add_argument('--mode', type=str, default='test',
+    parser.add_argument('--mode', type=str, default='train',
                         choices=['train', 'val', 'test', 'pred'],
                         help='Mode of execution')
     parser.add_argument('--use_gpu', type=string_to_boolean, default=True,

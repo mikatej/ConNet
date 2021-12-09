@@ -5,10 +5,20 @@ from torchvision.models import (alexnet, googlenet,
                                 resnet18, resnet34,
                                 resnet50, resnet101, resnet152,
                                 densenet121, densenet169, densenet201)
+from torchvision.models.detection import retinanet_resnet50_fpn
 import torch.nn as nn
+from models.CSRNet.CSRNet import CSRNet
+from models.MCNN.models import MCNN
+from models.MARUNet.marunet import MARNet
+
+from models.NLT.models.nlt_counter import NLT_Counter 
+# from models.NLT.config import cfg as nlt_cfg
+
 
 
 def init_weights(model, classifier_only=False):
+    print(model)
+
     for module in model.modules():
         if isinstance(module, nn.Conv2d) and not classifier_only:
             nn.init.kaiming_normal_(module.weight, mode='fan_out',
@@ -32,6 +42,7 @@ def load_pretrained_model(model, model_save_path, pretrained_model):
 
 
 def get_model(model_config,
+              backbone_model,
               imagenet_pretrain,
               model_save_path,
               input_channels,
@@ -104,6 +115,23 @@ def get_model(model_config,
         model = densenet201(pretrained=imagenet_pretrain, progress=True)
         model.classifier = nn.Linear(in_features=1920,
                                      out_features=class_count)
+
+    elif model_config == "CSRNet":
+        model = CSRNet()
+
+    elif model_config == "MCNN":
+        model = MCNN()
+
+    elif model_config == "NLT":
+        torch.backends.cudnn.enabled = False
+        model = NLT_Counter( mode='nlt', backbone=backbone_model)
+
+    elif model_config == "MARUNet":
+        torch.backends.cudnn.enabled = False
+        model = MARNet()
+
+    elif model_config == "RetinaNet":
+        model = retinanet_resnet50_fpn(pretrained=imagenet_pretrain, progress=True)
 
     if imagenet_pretrain is not True:
         init_weights(model)

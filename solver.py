@@ -40,7 +40,9 @@ class Solver(object):
         """
 
         # instantiate model
+        self.model_name = self.model
         self.model = get_model(self.model,
+                               self.backbone_model,
                                self.imagenet_pretrain,
                                self.model_save_path,
                                self.input_channels,
@@ -139,6 +141,9 @@ class Solver(object):
 
         # forward pass
         output = self.model(images)
+
+        if self.model_name == 'MARUNet':
+            output = output[0]
 
         # compute loss
         loss = self.criterion(output.squeeze(), labels.squeeze())
