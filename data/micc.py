@@ -40,21 +40,39 @@ class MICC(Dataset):
         self.ids = []
         self.targets = []
 
-        file_path = osp.join(self.data_path, self.dataset_subcategory)
+        file_path = osp.join(self.data_path, '%s')
 
         if self.mode == 'train':
-            list_path = osp.join(file_path, self.dataset_subcategory + "_train.txt")
+            list_path = osp.join(file_path, "%s_train.txt")
         elif self.mode == 'val':
-            list_path = osp.join(file_path, self.dataset_subcategory + "_validation.txt")
+            list_path = osp.join(file_path, "%s_validation.txt")
         elif self.mode == 'test':
-            list_path = osp.join(file_path, self.dataset_subcategory + "_testing.txt")
+            list_path = osp.join(file_path, "%s_testing.txt")
 
-        image_list = open(list_path, 'r').read()
-        self.ids = image_list.split('\n')
+        categories = ['flow', 'groups', 'queue']
+        if self.dataset_subcategory == 'all':
+            # categories = [self.dataset_subcategory]
 
-        self.image_path = osp.join(file_path, 'RGB', '%s')
-        self.target_path = osp.join(file_path, density_sigma, '%s')
-        self.targets = [i.replace('.png', '.h5') for i in self.ids]
+            self.image_path = osp.join(file_path, 'RGB', '%s')
+            self.target_path = osp.join(file_path, density_sigma, '%s')
+            for c in categories:
+                list_file = list_path % (c, c)
+
+                image_list = open(list_file, 'r').read()
+                ids = image_list.split('\n')
+                self.ids.extend([(c, image_id) for image_id in ids])
+                self.targets.extend([(c, image_id.replace('.png', '.h5')) for image_id in ids])
+
+        elif self.dataset_subcategory in categories:
+            list_file = list_path % (self.dataset_subcategory, self.dataset_subcategory)
+            image_list = open(list_file, 'r').read()
+
+            self.ids = image_list.split('\n')
+            self.targets = [i.replace('.png', '.h5') for i in self.ids]
+
+            file_path = file_path % self.dataset_subcategory
+            self.image_path = osp.join(file_path, 'RGB', '%s')
+            self.target_path = osp.join(file_path, density_sigma, '%s')
 
     def __len__(self):
         """Returns number of data in the dataset
