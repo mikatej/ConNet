@@ -91,11 +91,11 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='micc',
                         choices=['micc', 'mall'],
                         help='Dataset to use')
-    parser.add_argument('--dataset_subcategory', type=str, default='flow',
-                        choices=['flow', 'groups', 'queue'],
+    parser.add_argument('--dataset_subcategory', type=str, default='all',
+                        choices=['flow', 'groups', 'queue', 'all'],
                         help='(If MICC) dataset sequence to use')
-    parser.add_argument('--density_sigma', type=str, default='h5py-3',
-                        choices=['h5py-3'],
+    parser.add_argument('--density_sigma', type=str, default='h5py-5',
+                        choices=['h5py-3', 'h5py-5'],
                         help='Sigma value for density maps')
 
     parser.add_argument('--new_size', type=int, default=224,
@@ -106,27 +106,28 @@ if __name__ == '__main__':
                         help='Toggles data augmentation')
 
     # training settings
-    parser.add_argument('--lr', type=float, default=0.00001,
+    parser.add_argument('--lr', type=float, default=1e-8,
                         help='Learning rate')
-    parser.add_argument('--momentum', type=float, default=0.9,
+    parser.add_argument('--momentum', type=float, default=0.95,
                         help='Momentum')
     parser.add_argument('--weight_decay', type=float, default=0.0005,
                         help='Weight decay')
-    parser.add_argument('--num_epochs', type=int, default=1,
+    parser.add_argument('--num_epochs', type=int, default=4000,
                         help='Number of epochs')
     parser.add_argument('--learning_sched', type=list, default=[],
                         help='List of epochs to reduce the learning rate')
-    parser.add_argument('--batch_size', type=int, default=4,
+    parser.add_argument('--batch_size', type=int, default=1,
                         help='Batch size')
-    parser.add_argument('--model', type=str, default='MARUNet',
-                        choices=['CSRNet', 'MCNN', 'NLT', 'MARUNet'],
+    parser.add_argument('--model', type=str, default='MCNN',
+                        choices=['CSRNet', 'MCNN', 'NLT', 'MARUNet', 'SirMCNN'],
                         help='CNN model to use')
     parser.add_argument('--backbone_model', type=str, default='vgg16',
                         choices=['vgg16', 'ResNet50'],
                         help='If NLT, which backbone model to use')
     parser.add_argument('--pretrained_model', type=str,
-                        default=None,
+                        default='MCNN micc all 2021-12-28 12_18_45.451473_train/2000',
                         help='Pre-trained model')
+    parser.add_argument('--save_output_plots', type=string_to_boolean, default=True)
     parser.add_argument('--init_weights', type=string_to_boolean, default=True,
                         help='Toggles weight initialization')
     parser.add_argument('--imagenet_pretrain', type=string_to_boolean,
@@ -171,8 +172,12 @@ if __name__ == '__main__':
     output_txt = ''
 
     if args['mode'] == 'train':
+        dataset = args['dataset']
+        if dataset == 'micc':
+            dataset = '{} {}'.format(dataset, args['dataset_subcategory'])
+
         version = str(datetime.now()).replace(':', '_')
-        version = '{}_train'.format(version)
+        version = '{} {} {}_train'.format(args['model'], dataset, version)
         path = args['model_save_path']
         path = os.path.join(path, version)
         output_txt = os.path.join(path, '{}.txt'.format(version))
@@ -184,7 +189,7 @@ if __name__ == '__main__':
         path = args['model_test_path']
         path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))
-        compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], model[0]))
+        compile_txt = os.path.join(path, 'COMPILED {} {} {}.txt'.format(args['model'], args['mode'], model[0]))
 
     elif args['mode'] == 'test':
         model = args['pretrained_model'].split('/')
@@ -192,7 +197,7 @@ if __name__ == '__main__':
         path = args['model_test_path']
         path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))
-        compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], model[0]))
+        compile_txt = os.path.join(path, 'COMPILED {} {} {}.txt'.format(args['model'], args['mode'], model[0]))
 
     elif args['mode'] == 'pred':
         model = args['pretrained_model'].split('/')

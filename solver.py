@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 from models.model import get_model
-from utils.utils import to_var, write_print, write_to_file
+from utils.utils import to_var, write_print, write_to_file, save_plots
 from sklearn.metrics import (accuracy_score, balanced_accuracy_score,
                              f1_score, mean_squared_error, mean_absolute_error)
 from utils.timer import Timer
@@ -128,7 +128,7 @@ class Solver(object):
 
         torch.save(self.model.state_dict(), path)
 
-    def model_step(self, images, labels):
+    def model_step(self, images, labels, epoch):
         """
         A step for each iteration
         """
@@ -144,6 +144,13 @@ class Solver(object):
 
         if self.model_name == 'MARUNet':
             output = output[0]
+
+        # if self.save_output_plots:
+        #     file_path = os.path.join(self.compile_txt[:self.compile_txt.rfind('COMPILED')], 'epoch ' + str(epoch +1))
+        #     save_plots(file_path, output, labels)
+
+
+
 
         # compute loss
         loss = self.criterion(output.squeeze(), labels.squeeze())
@@ -193,7 +200,7 @@ class Solver(object):
                 labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
                 labels = torch.stack(labels)
 
-                loss = self.model_step(images, labels)
+                loss = self.model_step(images, labels, e)
                 # print("\t{:.6f}".format(loss.item()))
 
             # print out loss log
@@ -247,7 +254,7 @@ class Solver(object):
         mse = 0
 
         with torch.no_grad():
-            for images, labels in tqdm(data_loader):
+            for i, (images, labels) in enumerate(tqdm(data_loader)):
                 images = to_var(images, self.use_gpu)
 
                 labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
@@ -256,6 +263,11 @@ class Solver(object):
                 timer.tic()
                 output = self.model(images)
                 elapsed += timer.toc(average=False)
+
+                if self.save_output_plots and i % 10 == 0:
+                    model = self.pretrained_model.split('/')
+                    file_path = os.path.join(self.model_test_path, model[0], 'epoch ' + model[1])
+                    save_plots(file_path, output, labels)
 
                 # _, top_1_output = torch.max(output.data, dim=1)
                 # out.append(str(sm(output.data).tolist()))

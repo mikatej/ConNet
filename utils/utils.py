@@ -1,5 +1,7 @@
 import os
 import torch
+import time
+import matplotlib.pyplot as plt
 
 
 def to_var(x, use_gpu, requires_grad=False):
@@ -36,3 +38,21 @@ def write_to_file(path, text):
     file = open(path, 'a')
     file.write(text + '\n')
     file.close()
+
+def save_plots(file_path, output, labels):
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
+
+    file_path = os.path.join(file_path , '%s')
+    # for i, o in enumerate(output):
+    for i in range(0, len(output), 5):
+        file_name = file_path % (str(time.time()) + '.png')
+
+        l = labels[i].cpu().detach().numpy().squeeze()
+        o = output[i].cpu().detach().numpy().squeeze()
+
+        plt.subplot(1, 2, 1)
+        plt.imshow(l)
+        plt.subplot(1, 2, 2)
+        plt.imshow(o)
+        plt.savefig(file_name)
