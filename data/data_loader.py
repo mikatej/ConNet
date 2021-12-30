@@ -22,43 +22,16 @@ def get_loader(config):
 
     if config.model == 'CSRNet' or config.model == 'CAN':
         targets_resize = 2 ** 3
-    elif config.model == 'MCNN':
+    elif config.model == 'MCNN' or config.model == 'SirMCNN':
         targets_resize = 2 ** 2
-
-    if config.dataset == 'ip102':
-
-        if config.mode == 'train':
-            if config.augment is True:
-                image_transform = Augmentations(config.new_size, config.means)
-            else:
-                image_transform = BaseTransform(config.new_size, config.means)
-
-            dataset = IP102(data_path=config.ip102_data_path,
-                            mode='train',
-                            new_size=config.new_size,
-                            image_transform=image_transform)
-
-        elif config.mode == 'val':
-            image_transform = BaseTransform(config.new_size, config.means)
-            dataset = IP102(data_path=config.ip102_data_path,
-                            mode='val',
-                            new_size=config.new_size,
-                            image_transform=image_transform)
-
-        elif config.mode == 'test' or config.mode == 'pred':
-            image_transform = BaseTransform(config.new_size, config.means)
-            dataset = IP102(data_path=config.ip102_data_path,
-                            mode='test',
-                            new_size=config.new_size,
-                            image_transform=image_transform)
 
     if config.dataset == 'micc':
 
         if config.mode == 'train':
             if config.augment is True:
-                image_transform = Augmentations(config.new_size, config.means)
+                image_transform = Augmentations(config.means)
             else:
-                image_transform = BaseTransform(config.new_size, config.means)
+                image_transform = BaseTransform(config.means)
 
             dataset = MICC(data_path=config.micc_data_path,
                             dataset_subcategory=config.dataset_subcategory,
@@ -69,7 +42,7 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'val':
-            image_transform = BaseTransform(config.new_size, config.means)
+            image_transform = BaseTransform(config.means)
             dataset = MICC(data_path=config.micc_data_path,
                             dataset_subcategory=config.dataset_subcategory,
                             mode='val',
@@ -79,7 +52,7 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'test' or config.mode == 'pred':
-            image_transform = BaseTransform(config.new_size, config.means)
+            image_transform = BaseTransform(config.means)
             dataset = MICC(data_path=config.micc_data_path,
                             dataset_subcategory=config.dataset_subcategory,
                             mode='test',
@@ -92,9 +65,9 @@ def get_loader(config):
 
         if config.mode == 'train':
             if config.augment is True:
-                image_transform = Augmentations(config.new_size, config.means)
+                image_transform = Augmentations(config.means)
             else:
-                image_transform = BaseTransform(config.new_size, config.means)
+                image_transform = BaseTransform(config.means)
 
             dataset = MallDataset(data_path=config.mall_data_path,
                             mode='train',
@@ -104,7 +77,7 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'val':
-            image_transform = BaseTransform(config.new_size, config.means)
+            image_transform = BaseTransform(config.means)
             dataset = MallDataset(data_path=config.mall_data_path,
                             mode='val',
                             new_size=config.new_size,
@@ -113,7 +86,7 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'test' or config.mode == 'pred':
-            image_transform = BaseTransform(config.new_size, config.means)
+            image_transform = BaseTransform(config.means)
             dataset = MallDataset(data_path=config.mall_data_path,
                             mode='test',
                             new_size=config.new_size,

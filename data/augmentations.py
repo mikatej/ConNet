@@ -658,7 +658,7 @@ class Augmentations(object):
     This is used for training the model."""
 
     def __init__(self,
-                 size,
+                 # size,
                  mean):
         """Class constructor for Augmentations
 
@@ -668,13 +668,13 @@ class Augmentations(object):
         """
 
         super(Augmentations, self).__init__()
-        self.size = size
+        # self.size = size
         self.mean = mean
         self.augment = Compose([ConvertToFloat(),
                                 PhotometricDistort(),
                                 RandomSampleCrop(),
                                 RandomMirror(),
-                                Resize(self.size),
+                                # Resize(self.size),
                                 SubtractMeans(self.mean)])
 
     def __call__(self,
@@ -702,7 +702,7 @@ class BaseTransform(object):
     image pixels. This is used for testing the model."""
 
     def __init__(self,
-                 size,
+                 # size,
                  mean):
         """Class constructor for BaseTransform
 
@@ -712,7 +712,7 @@ class BaseTransform(object):
         """
 
         super(BaseTransform, self).__init__()
-        self.size = size
+        # self.size = size
         self.mean = np.array(mean, dtype=np.float32)
 
     def __call__(self,
@@ -731,10 +731,11 @@ class BaseTransform(object):
             techniques, corresponding class of the image
         """
 
-        dimensions = (self.size, self.size)
-        image = cv2.resize(image, dimensions).astype(np.float32)
+        # dimensions = (self.size, self.size)
+        # image = cv2.resize(image, dimensions).astype(np.float32)
+        image = image.astype(np.float32)
         image -= self.mean
         image = image.astype(np.float32)
 
-        label = cv2.resize(image, dimensions).astype(np.float32)
+        # label = cv2.resize(image, dimensions).astype(np.float32)
         return image, label
