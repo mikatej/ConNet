@@ -34,7 +34,8 @@ class MCNN(nn.Module):
         
         self.fuse = nn.Sequential(Conv2d( 30, 1, 1, same_padding=True, bn=bn))
 
-        weights_normal_init(self, dev=0.01)
+        # weights_normal_init(self, dev=0.01)
+        # self._initialize_weights();
         
     def forward(self, im_data):
         x1 = self.branch1(im_data)
@@ -44,3 +45,14 @@ class MCNN(nn.Module):
         x = self.fuse(x)
         
         return x
+
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.normal_(m.weight, std=0.01)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
