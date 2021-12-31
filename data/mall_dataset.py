@@ -49,6 +49,7 @@ class MallDataset(TensorDataset):
         images = glob.glob(image_path)
 
         self.ids = [img[img.rfind('\\') + 1:] for img in images]
+        self.image_ids = self.ids
         self.targets = [i.replace(self.mode, density_sigma).replace('jpg', 'h5') for i in self.ids]
 
 

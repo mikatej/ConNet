@@ -38,6 +38,7 @@ class MICC(Dataset):
         self.targets_resize = targets_resize
 
         self.ids = []
+        self.image_ids = []
         self.targets = []
 
         file_path = osp.join(self.data_path, '%s')
@@ -61,6 +62,7 @@ class MICC(Dataset):
                 image_list = open(list_file, 'r').read()
                 ids = image_list.split('\n')
                 self.ids.extend([(c, image_id) for image_id in ids])
+                self.image_ids.extend(['{}_{}'.format(c, image_id) for image_id in ids])
                 self.targets.extend([(c, image_id.replace('.png', '.h5')) for image_id in ids])
 
         elif self.dataset_subcategory in categories:
@@ -68,6 +70,7 @@ class MICC(Dataset):
             image_list = open(list_file, 'r').read()
 
             self.ids = image_list.split('\n')
+            self.image_ids = self.ids
             self.targets = [i.replace('.png', '.h5') for i in self.ids]
 
             file_path = file_path % self.dataset_subcategory

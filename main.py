@@ -64,8 +64,8 @@ def main(version, config, output_txt, compile_txt):
     # for fast training
     cudnn.benchmark = True
 
-    data_loader = get_loader(config)
-    solver = Solver(version, data_loader, vars(config), output_txt, compile_txt)
+    data_loader, dataset_ids = get_loader(config)
+    solver = Solver(version, data_loader, dataset_ids, vars(config), output_txt, compile_txt)
 
     if config.mode == 'train':
         temp_save_path = os.path.join(config.model_save_path, version)

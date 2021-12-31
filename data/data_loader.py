@@ -4,7 +4,6 @@ from data.micc import MICC
 from torch.utils.data import DataLoader
 from data.augmentations import Augmentations, BaseTransform
 
-
 def collate(batch):
     images = []
     targets = []
@@ -111,4 +110,4 @@ def get_loader(config):
                                 num_workers=4,
                                 pin_memory=True)
 
-    return loader
+    return loader, dataset.image_ids

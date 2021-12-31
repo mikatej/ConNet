@@ -39,14 +39,16 @@ def write_to_file(path, text):
     file.write(text + '\n')
     file.close()
 
-def save_plots(file_path, output, labels):
+def save_plots(file_path, output, labels, ids):
     if not os.path.exists(file_path):
         os.makedirs(file_path)
 
     file_path = os.path.join(file_path , '%s')
+
     # for i, o in enumerate(output):
     for i in range(0, len(output), 5):
-        file_name = file_path % (str(time.time()) + '.png')
+        # file_name = file_path % (str(time.time()) + '.png')
+        file_name = file_path % (ids[i])
 
         l = labels[i].cpu().detach().numpy().squeeze()
         o = output[i].cpu().detach().numpy().squeeze()

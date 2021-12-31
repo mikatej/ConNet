@@ -16,7 +16,7 @@ class Solver(object):
 
     DEFAULTS = {}
 
-    def __init__(self, version, data_loader, config, output_txt, compile_txt):
+    def __init__(self, version, data_loader, dataset_ids, config, output_txt, compile_txt):
         """
         Initializes a Solver object
         """
@@ -25,6 +25,7 @@ class Solver(object):
         self.__dict__.update(Solver.DEFAULTS, **config)
         self.version = version
         self.data_loader = data_loader
+        self.dataset_ids = dataset_ids
         self.output_txt = output_txt
         self.compile_txt = compile_txt
 
@@ -264,10 +265,12 @@ class Solver(object):
                 output = self.model(images)
                 elapsed += timer.toc(average=False)
 
+                ids = self.dataset_ids[i*self.batch_size: i*self.batch_size + self.batch_size]
+
                 if self.save_output_plots and i % 10 == 0:
                     model = self.pretrained_model.split('/')
                     file_path = os.path.join(self.model_test_path, model[0], 'epoch ' + model[1])
-                    save_plots(file_path, output, labels)
+                    save_plots(file_path, output, labels, ids)
 
                 # _, top_1_output = torch.max(output.data, dim=1)
                 # out.append(str(sm(output.data).tolist()))
