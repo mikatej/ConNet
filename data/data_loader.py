@@ -29,8 +29,10 @@ def get_loader(config):
         if config.mode == 'train':
             if config.augment is True:
                 image_transform = Augmentations(config.means)
-            else:
+            elif config.base_transform:
                 image_transform = BaseTransform(config.means)
+            else:
+                image_transform = None
 
             dataset = MICC(data_path=config.micc_data_path,
                             dataset_subcategory=config.dataset_subcategory,
@@ -41,7 +43,10 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'val':
-            image_transform = BaseTransform(config.means)
+            if config.base_transform:
+                image_transform = BaseTransform(config.means)
+            else:
+                image_transform = None
             dataset = MICC(data_path=config.micc_data_path,
                             dataset_subcategory=config.dataset_subcategory,
                             mode='val',
@@ -51,7 +56,10 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'test' or config.mode == 'pred':
-            image_transform = BaseTransform(config.means)
+            if config.base_transform:
+                image_transform = BaseTransform(config.means)
+            else:
+                image_transform = None
             dataset = MICC(data_path=config.micc_data_path,
                             dataset_subcategory=config.dataset_subcategory,
                             mode='test',
@@ -65,8 +73,10 @@ def get_loader(config):
         if config.mode == 'train':
             if config.augment is True:
                 image_transform = Augmentations(config.means)
-            else:
+            elif config.base_transform:
                 image_transform = BaseTransform(config.means)
+            else:
+                image_transform = None
 
             dataset = MallDataset(data_path=config.mall_data_path,
                             mode='train',
@@ -76,7 +86,10 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'val':
-            image_transform = BaseTransform(config.means)
+            if config.base_transform:
+                image_transform = BaseTransform(config.means)
+            else:
+                image_transform = None
             dataset = MallDataset(data_path=config.mall_data_path,
                             mode='val',
                             new_size=config.new_size,
@@ -85,7 +98,10 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'test' or config.mode == 'pred':
-            image_transform = BaseTransform(config.means)
+            if config.base_transform:
+                image_transform = BaseTransform(config.means)
+            else:
+                image_transform = None
             dataset = MallDataset(data_path=config.mall_data_path,
                             mode='test',
                             new_size=config.new_size,
