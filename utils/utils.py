@@ -2,6 +2,7 @@ import os
 import torch
 import time
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def to_var(x, use_gpu, requires_grad=False):
@@ -50,11 +51,22 @@ def save_plots(file_path, output, labels, ids):
         # file_name = file_path % (str(time.time()) + '.png')
         file_name = file_path % (ids[i])
 
-        l = labels[i].cpu().detach().numpy().squeeze()
-        o = output[i].cpu().detach().numpy().squeeze()
+        l = labels[i].cpu().detach().numpy()
+        o = output[i].cpu().detach().numpy()
+
+        gt_count = np.sum(l)    
+        et_count = np.sum(o)
+
+        l = l.squeeze()
+        o = o.squeeze()
 
         plt.subplot(1, 2, 1)
         plt.imshow(l)
+        text = plt.text(0, 0, 'actual: {} \npredicted: {}\n\n'.format(str(gt_count), str(et_count)))
+        
         plt.subplot(1, 2, 2)
         plt.imshow(o)
         plt.savefig(file_name)
+
+        text.set_visible(False)
+
