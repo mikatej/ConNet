@@ -35,6 +35,12 @@ class Solver(object):
         if self.pretrained_model:
             self.load_pretrained_model()
 
+        rand_seed = 64678  
+        if rand_seed is not None:
+            np.random.seed(rand_seed)
+            torch.manual_seed(rand_seed)
+            torch.cuda.manual_seed(rand_seed)
+
     def build_model(self):
         """
         Instantiates the model, loss criterion, and optimizer
@@ -54,13 +60,16 @@ class Solver(object):
         self.criterion = nn.MSELoss() #.cuda()
 
         # instantiate optimizer
-        self.optimizer = optim.SGD(self.model.parameters(),
-                                   lr=self.lr,
-                                   momentum=self.momentum,
-                                   weight_decay=self.weight_decay)
+        # self.optimizer = optim.SGD(self.model.parameters(),
+        #                            lr=self.lr,
+        #                            momentum=self.momentum,
+        #                            weight_decay=self.weight_decay)
 
         # self.optimizer = optim.Adam(params=self.model.parameters(),
         #                             lr=self.lr)
+
+        self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), 
+                                    lr=self.lr)
 
         # print network
         self.print_network(self.model, 'VGGNet')
@@ -141,7 +150,10 @@ class Solver(object):
         self.optimizer.zero_grad()
 
         # forward pass
-        output = self.model(images)
+        if self.model_name == 'MCNN':
+            output = self.model(images, labels)
+        else:
+            output = self.model(images)
 
         if self.model_name == 'MARUNet':
             output = output[0]
@@ -150,14 +162,15 @@ class Solver(object):
         #     file_path = os.path.join(self.compile_txt[:self.compile_txt.rfind('COMPILED')], 'epoch ' + str(epoch +1))
         #     save_plots(file_path, output, labels)
 
-
-
-
         # compute loss
-        loss = self.criterion(output.squeeze(), labels.squeeze())
+        if self.model_name == 'MCNN':
+            self.model.loss.backward()
+            loss = self.model.loss.item()
+        else:
+            loss = self.criterion(output.squeeze(), labels.squeeze())
 
-        # compute gradients using back propagation
-        loss.backward()
+            # compute gradients using back propagation
+            loss.backward()
 
         # update parameters
         self.optimizer.step()
