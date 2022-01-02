@@ -8,7 +8,8 @@ from torchvision.models import (alexnet, googlenet,
 from torchvision.models.detection import retinanet_resnet50_fpn
 import torch.nn as nn
 from models.CSRNet.CSRNet import CSRNet
-from models.MCNN.models import MCNN
+from models.MCNN.network import weights_normal_init
+from models.MCNN.crowd_count import CrowdCounter
 from models.MARUNet.marunet import MARNet
 
 from models.NLT.models.nlt_counter import NLT_Counter 
@@ -120,7 +121,8 @@ def get_model(model_config,
         model = CSRNet()
 
     elif model_config == "MCNN":
-        model = MCNN()
+        model = CrowdCounter()
+        weights_normal_init(model, dev=0.01)
 
     elif model_config == "NLT":
         torch.backends.cudnn.enabled = False
