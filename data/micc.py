@@ -113,19 +113,42 @@ class MICC(Dataset):
         """
         image_id = self.ids[index]
 
-        image = cv2.imread(self.image_path % image_id)
+        image = cv2.imread(self.image_path % image_id, 0)
         target = self.pull_target(index)
-        height, width, _ = image.shape
+        height, width = image.shape
 
-        if self.image_transform is not None:
-            image, target = self.image_transform(image, target)
-            image = image[:, :, (2, 1, 0)]
+        # if self.image_transform is not None:
+        #     image, target = self.image_transform(image, target)
+        #     image = image[:, :, (2, 1, 0)]
+
+        ht = image.shape[0]
+        wd = image.shape[1]
+        ht_1 = int((ht/4)*4)
+        wd_1 = int((wd/4)*4)
+
+        image = cv2.resize(image,(wd_1,ht_1))
+        image = image.reshape((1,image.shape[0],image.shape[1]))
+
+        # out_size = (target.shape[1] // self.targets_resize, target.shape[0] // self.targets_resize)
+        # target = cv2.resize(target, out_size)
+        # target = target * ((wd * ht) / out_size[0] * out_size[1])
+
+        # target = cv2.resize(target,(wd_1,ht_1))
+        # target = target * ((wd*ht)/(wd_1*ht_1))
+
+        wd_1 = int(wd_1/self.targets_resize)
+        ht_1 = int(ht_1/self.targets_resize)
+        target = cv2.resize(target,(wd_1,ht_1))                
+        target = target * ((wd*ht)/(wd_1*ht_1))
+        target = target.reshape((1, target.shape[0], target.shape[1]))
 
 
-        out_size = (target.shape[1] // self.targets_resize, target.shape[0] // self.targets_resize)
-        target = cv2.resize(target, out_size)
+        # print("actual count: {}".format(np.sum(target)))
+        # image = image.reshape((1, image.shape[0], image.shape[1]))
+        # target = target.reshape((1, target.shape[0], target.shape[1]))
 
-        return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0), height, width
+        # return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0), height, width
+        return torch.from_numpy(image), torch.from_numpy(target), height, width
 
 
     def pull_image(self, index):
