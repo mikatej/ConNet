@@ -29,6 +29,10 @@ class Solver(object):
         self.output_txt = output_txt
         self.compile_txt = compile_txt
 
+        self.dataset_info = self.dataset
+        if (self.dataset == 'micc'):
+            self.dataset_info = '{} {}'.format(self.dataset, self.dataset_subcategory)
+
         self.build_model()
 
         # start with a pre-trained model
@@ -40,6 +44,7 @@ class Solver(object):
             np.random.seed(rand_seed)
             torch.manual_seed(rand_seed)
             torch.cuda.manual_seed(rand_seed)
+
 
     def build_model(self):
         """
@@ -68,7 +73,15 @@ class Solver(object):
         # self.optimizer = optim.Adam(params=self.model.parameters(),
         #                             lr=self.lr)
 
-        self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), 
+        if self.model_name == 'NLT':
+            self.optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr = self.lr, weight_decay=self.weight_decay)
+            self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=2, gamma=0.98)
+
+            # self.optimizer = torch.optim.Adam(
+            #     [{'params': filter(lambda p: p.requires_grad, self.model.encoder.parameters()), 'lr': self.lr}, \
+            #     {'params': filter(lambda p: p.requires_grad, self.model.decoder.parameters()), 'lr': self.lr}])
+        else:
+            self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()),
                                     lr=self.lr)
 
         # print network
@@ -96,7 +109,7 @@ class Solver(object):
         loads a pre-trained model from a .pth file
         """
         self.model.load_state_dict(torch.load(os.path.join(
-            self.model_save_path, '{}.pth'.format(self.pretrained_model))))
+            self.model_save_path, '{}.pth'.format(self.pretrained_model))), strict=False)
         write_print(self.output_txt,
                     'loaded trained model {}'.format(self.pretrained_model))
 
@@ -116,7 +129,7 @@ class Solver(object):
         elapsed = str(datetime.timedelta(seconds=elapsed))
 
         log = "Elapsed {}/{} -- {}, Epoch [{}/{}], Iter [{}/{}], " \
-              "loss: {:.10f}".format(elapsed,
+              "loss: {:.15f}".format(elapsed,
                                     epoch_time,
                                     total_time,
                                     e + 1,
@@ -149,10 +162,13 @@ class Solver(object):
         # empty the gradients of the model through the optimizer
         self.optimizer.zero_grad()
 
+        # print(images.dtype)
+        # print(torch.cuda.memory_summary())
         # forward pass
         if self.model_name == 'MCNN':
             output = self.model(images, labels)
         else:
+            images = images.float()
             output = self.model(images)
 
         if self.model_name == 'MARUNet':
@@ -174,6 +190,9 @@ class Solver(object):
 
         # update parameters
         self.optimizer.step()
+
+        if self.model_name == 'NLT':
+            self.lr_scheduler.step()
 
         # return loss
         return loss
@@ -275,14 +294,18 @@ class Solver(object):
                 labels = torch.stack(labels)
 
                 timer.tic()
+                images = images.float()
                 output = self.model(images)
                 elapsed += timer.toc(average=False)
 
                 ids = self.dataset_ids[i*self.batch_size: i*self.batch_size + self.batch_size]
 
+                if self.model_name == 'MARUNet':
+                    output = output[0] / 50
+
                 if self.save_output_plots and i % 10 == 0:
                     model = self.pretrained_model.split('/')
-                    file_path = os.path.join(self.model_test_path, model[0], 'epoch ' + model[1])
+                    file_path = os.path.join(self.model_test_path, model[0], self.dataset_info + ' epoch ' + model[1])
                     save_plots(file_path, output, labels, ids)
 
                 # _, top_1_output = torch.max(output.data, dim=1)
@@ -355,5 +378,5 @@ class Solver(object):
         epoch_num = self.output_txt[self.output_txt.rfind('_')+1:-4]
         write_to_file(self.compile_txt, 'epoch {} | {}'.format(epoch_num, log))
 
-        if (epoch_num == '5'):
+        if (int(epoch_num) % 5 == 0):
             write_to_file(self.compile_txt, '')

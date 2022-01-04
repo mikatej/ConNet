@@ -21,7 +21,7 @@ def get_loader(config):
 
     if config.model == 'CSRNet' or config.model == 'CAN':
         targets_resize = 2 ** 3
-    elif config.model == 'MCNN' or config.model == 'SirMCNN':
+    elif config.model == 'MCNN':
         targets_resize = 2 ** 2
 
     if config.dataset == 'micc':
@@ -29,7 +29,7 @@ def get_loader(config):
         if config.mode == 'train':
             if config.augment is True:
                 image_transform = Augmentations(config.means)
-            elif config.base_transform:
+            elif config.base_transform is True:
                 image_transform = BaseTransform(config.means)
             else:
                 image_transform = None
@@ -43,7 +43,7 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'val':
-            if config.base_transform:
+            if config.base_transform is True:
                 image_transform = BaseTransform(config.means)
             else:
                 image_transform = None
@@ -56,7 +56,7 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'test' or config.mode == 'pred':
-            if config.base_transform:
+            if config.base_transform is True:
                 image_transform = BaseTransform(config.means)
             else:
                 image_transform = None
@@ -73,7 +73,7 @@ def get_loader(config):
         if config.mode == 'train':
             if config.augment is True:
                 image_transform = Augmentations(config.means)
-            elif config.base_transform:
+            elif config.base_transform is True:
                 image_transform = BaseTransform(config.means)
             else:
                 image_transform = None
@@ -86,7 +86,7 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'val':
-            if config.base_transform:
+            if config.base_transform is True:
                 image_transform = BaseTransform(config.means)
             else:
                 image_transform = None
@@ -98,7 +98,7 @@ def get_loader(config):
                             targets_resize=targets_resize)
 
         elif config.mode == 'test' or config.mode == 'pred':
-            if config.base_transform:
+            if config.base_transform is True:
                 image_transform = BaseTransform(config.means)
             else:
                 image_transform = None

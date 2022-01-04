@@ -125,11 +125,11 @@ def get_model(model_config,
         weights_normal_init(model, dev=0.01)
 
     elif model_config == "NLT":
-        torch.backends.cudnn.enabled = False
+        # torch.backends.cudnn.enabled = False
         model = NLT_Counter( mode='nlt', backbone=backbone_model)
 
     elif model_config == "MARUNet":
-        torch.backends.cudnn.enabled = False
+        # torch.backends.cudnn.enabled = False
         model = MARNet()
 
     elif model_config == "RetinaNet":

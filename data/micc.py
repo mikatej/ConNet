@@ -113,11 +113,13 @@ class MICC(Dataset):
         """
         image_id = self.ids[index]
 
-        image = cv2.imread(self.image_path % image_id, 0)
+        image = cv2.imread(self.image_path % image_id)
         target = self.pull_target(index)
-        height, width = image.shape
+        height, width, _ = image.shape
 
+        # print("\n\n\nIMAGE TRANSFORM: {}\n\n\n".format(self.image_transform))
         # if self.image_transform is not None:
+        #     print("ENTERED: " + self.image_transform)
         #     image, target = self.image_transform(image, target)
         #     image = image[:, :, (2, 1, 0)]
 
@@ -127,7 +129,7 @@ class MICC(Dataset):
         wd_1 = int((wd/4)*4)
 
         image = cv2.resize(image,(wd_1,ht_1))
-        image = image.reshape((1,image.shape[0],image.shape[1]))
+        # image = image.reshape((1,image.shape[0],image.shape[1]))
 
         # out_size = (target.shape[1] // self.targets_resize, target.shape[0] // self.targets_resize)
         # target = cv2.resize(target, out_size)
@@ -140,15 +142,15 @@ class MICC(Dataset):
         ht_1 = int(ht_1/self.targets_resize)
         target = cv2.resize(target,(wd_1,ht_1))                
         target = target * ((wd*ht)/(wd_1*ht_1))
-        target = target.reshape((1, target.shape[0], target.shape[1]))
+        # target = target.reshape((1, target.shape[0], target.shape[1]))
 
 
         # print("actual count: {}".format(np.sum(target)))
         # image = image.reshape((1, image.shape[0], image.shape[1]))
         # target = target.reshape((1, target.shape[0], target.shape[1]))
 
-        # return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0), height, width
-        return torch.from_numpy(image), torch.from_numpy(target), height, width
+        return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0), height, width
+        # return torch.from_numpy(image), torch.from_numpy(target), height, width
 
 
     def pull_image(self, index):

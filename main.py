@@ -102,32 +102,32 @@ if __name__ == '__main__':
                         help='New height and width of input images')
     parser.add_argument('--means', type=tuple, default=(104, 117, 123),
                         help='Mean values of the dataset')
-    parser.add_argument('--augment', type=string_to_boolean, default=True,
+    parser.add_argument('--augment', type=string_to_boolean, default=False,
                         help='Toggles data augmentation')
     parser.add_argument('--base_transform', type=string_to_boolean, default=False,
                         help='Toggles base transformation (mean subtraction)')
 
     # training settings
-    parser.add_argument('--lr', type=float, default=1e-8,
+    parser.add_argument('--lr', type=float, default=1e-6,
                         help='Learning rate')
-    parser.add_argument('--momentum', type=float, default=0.95,
+    parser.add_argument('--momentum', type=float, default=0.9,
                         help='Momentum')
-    parser.add_argument('--weight_decay', type=float, default=0.0005,
+    parser.add_argument('--weight_decay', type=float, default= 0.0001,
                         help='Weight decay')
-    parser.add_argument('--num_epochs', type=int, default=4000,
+    parser.add_argument('--num_epochs', type=int, default=200,
                         help='Number of epochs')
     parser.add_argument('--learning_sched', type=list, default=[],
                         help='List of epochs to reduce the learning rate')
     parser.add_argument('--batch_size', type=int, default=1,
                         help='Batch size')
-    parser.add_argument('--model', type=str, default='MCNN',
+    parser.add_argument('--model', type=str, default='NLT',
                         choices=['CSRNet', 'MCNN', 'NLT', 'MARUNet', 'SirMCNN'],
                         help='CNN model to use')
     parser.add_argument('--backbone_model', type=str, default='vgg16',
                         choices=['vgg16', 'ResNet50'],
                         help='If NLT, which backbone model to use')
     parser.add_argument('--pretrained_model', type=str,
-                        default='MCNN micc all 2022-01-01 18_26_11.576980_train/1',
+                        default='pre-trained NLT/0',
                         help='Pre-trained model')
     parser.add_argument('--save_output_plots', type=string_to_boolean, default=True)
     parser.add_argument('--init_weights', type=string_to_boolean, default=True,
@@ -137,7 +137,7 @@ if __name__ == '__main__':
                         help='Toggles pretrained weights for vision models')
 
     # misc
-    parser.add_argument('--mode', type=str, default='val',
+    parser.add_argument('--mode', type=str, default='train',
                         choices=['train', 'val', 'test', 'pred'],
                         help='Mode of execution')
     parser.add_argument('--use_gpu', type=string_to_boolean, default=True,

@@ -50,7 +50,8 @@ class MallDataset(TensorDataset):
 
         self.ids = [img[img.rfind('\\') + 1:] for img in images]
         self.image_ids = self.ids
-        self.targets = [i.replace(self.mode, density_sigma).replace('jpg', 'h5') for i in self.ids]
+        self.targets = [i.replace('jpg', 'h5') for i in self.ids]
+        self.target_path = osp.join(self.data_path, density_sigma, '%s')
 
 
     def __len__(self):
@@ -93,13 +94,24 @@ class MallDataset(TensorDataset):
         target = self.pull_target(index)
         height, width, _ = image.shape
 
-        if self.image_transform is not None:
-            image, target = self.image_transform(image, target)
-            image = image[:, :, (2, 1, 0)]
+        # if self.image_transform is not None:
+        #     image, target = self.image_transform(image, target)
+        #     image = image[:, :, (2, 1, 0)]
 
 
-        out_size = (target.shape[1] // self.targets_resize, target.shape[0] // self.targets_resize)
-        target = cv2.resize(target, out_size)
+        ht = image.shape[0]
+        wd = image.shape[1]
+        ht_1 = int((ht/4)*4)
+        wd_1 = int((wd/4)*4)
+
+        image = cv2.resize(image,(wd_1,ht_1))
+        # out_size = (target.shape[1] // self.targets_resize, target.shape[0] // self.targets_resize)
+        # target = cv2.resize(target, out_size)
+
+        wd_1 = int(wd_1/self.targets_resize)
+        ht_1 = int(ht_1/self.targets_resize)
+        target = cv2.resize(target,(wd_1,ht_1))
+        target = target * ((wd*ht)/(wd_1*ht_1))
 
         return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0), height, width
 
@@ -128,7 +140,7 @@ class MallDataset(TensorDataset):
         """
 
         target = self.targets[index]
-        target_path = self.image_path % target
+        target_path = self.target_path % target
 
         target = h5py.File(target_path, 'r')
         target = target['density']
