@@ -126,11 +126,12 @@ def get_model(model_config,
 
     elif model_config == "NLT":
         # torch.backends.cudnn.enabled = False
-        model = NLT_Counter( mode='nlt', backbone=backbone_model)
+        model.sou = NLT_Counter(backbone=backbone_model)
+        model.tar = NLT_Counter( mode='nlt', backbone=backbone_model)
 
     elif model_config == "MARUNet":
         # torch.backends.cudnn.enabled = False
-        model = MARNet()
+        model = MARNet(objective='dmp+amp')
 
     elif model_config == "RetinaNet":
         model = retinanet_resnet50_fpn(pretrained=imagenet_pretrain, progress=True)

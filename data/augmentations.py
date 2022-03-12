@@ -525,19 +525,22 @@ class RandomSampleCrop(object):
             corresponding class of the image
         """
 
-        if random.randint(2):
+        # if random.randint(2):
+        if True:
             h, w, _ = image.shape
 
-            scale = np.random.uniform(low=self.min_scale, high=1.0)
-            size = int(scale * np.amin([h, w]))
+            # scale = np.random.uniform(low=self.min_scale, high=1.0)
+            scale = 0.5
+            size_h = int(scale * h)
+            size_w = int(scale * w)
 
-            top_x_range = [0, w - size]
-            top_y_range = [0, h - size]
+            top_x_range = [0, w - size_w]
+            top_y_range = [0, h - size_h]
             top_x = np.random.randint(top_x_range[0], top_x_range[1])
             top_y = np.random.randint(top_y_range[0], top_y_range[1])
 
-            image = image[top_y:top_y + size, top_x:top_x + size, :]
-            label = label[top_y:top_y + size, top_x:top_x + size]
+            image = image[top_y:top_y + size_h, top_x:top_x + size_w, :]
+            label = label[top_y:top_y + size_h, top_x:top_x + size_w]
 
         return image, label
 
@@ -670,12 +673,15 @@ class Augmentations(object):
         super(Augmentations, self).__init__()
         # self.size = size
         self.mean = mean
-        self.augment = Compose([ConvertToFloat(),
-                                PhotometricDistort(),
-                                RandomSampleCrop(),
-                                RandomMirror(),
-                                # Resize(self.size),
-                                SubtractMeans(self.mean)])
+        # self.augment = Compose([ConvertToFloat(),
+        #                         PhotometricDistort(),
+        #                         RandomSampleCrop(),
+        #                         RandomMirror(),
+        #                         # Resize(self.size),
+        #                         SubtractMeans(self.mean)])
+
+        self.augment = Compose([RandomSampleCrop(),
+                                RandomMirror()])
 
     def __call__(self,
                  image,

@@ -6,11 +6,13 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 from models.model import get_model
-from utils.utils import to_var, write_print, write_to_file, save_plots
+from utils.utils import to_var, write_print, write_to_file, save_plots, get_amp_gt_by_value
 from sklearn.metrics import (accuracy_score, balanced_accuracy_score,
                              f1_score, mean_squared_error, mean_absolute_error)
 from utils.timer import Timer
 import numpy as np
+import torch.nn.functional as F
+from utils.marunet_losses import cal_avg_ms_ssim
 
 class Solver(object):
 
@@ -73,13 +75,8 @@ class Solver(object):
         # self.optimizer = optim.Adam(params=self.model.parameters(),
         #                             lr=self.lr)
 
-        if self.model_name == 'NLT':
-            self.optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr = self.lr, weight_decay=self.weight_decay)
-            self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=2, gamma=0.98)
-
-            # self.optimizer = torch.optim.Adam(
-            #     [{'params': filter(lambda p: p.requires_grad, self.model.encoder.parameters()), 'lr': self.lr}, \
-            #     {'params': filter(lambda p: p.requires_grad, self.model.decoder.parameters()), 'lr': self.lr}])
+        if self.model_name == 'MARUNet':
+            self.optimizer = optim.Adam(self.model.parameters(), lr = self.lr, weight_decay = self.weight_decay)
         else:
             self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()),
                                     lr=self.lr)
@@ -172,7 +169,10 @@ class Solver(object):
             output = self.model(images)
 
         if self.model_name == 'MARUNet':
-            output = output[0]
+            output, d0, d1, d2, d3, d4, amp41, amp31, amp21, amp11, amp01 = output
+            amp_gt = [get_amp_gt_by_value(l) for l in labels]
+            amp_gt = torch.stack(amp_gt).cuda()
+            # labels = labels * 50
 
         # if self.save_output_plots:
         #     file_path = os.path.join(self.compile_txt[:self.compile_txt.rfind('COMPILED')], 'epoch ' + str(epoch +1))
@@ -182,9 +182,30 @@ class Solver(object):
         if self.model_name == 'MCNN':
             self.model.loss.backward()
             loss = self.model.loss.item()
+        elif self.model_name == 'MARUNet':
+            loss = 0
+            outputs = [output, d0, d1, d2, d3, d4]
+
+            target = 50 * labels[0].float().unsqueeze(1).cuda()
+            for out in outputs:
+                # out = out.cuda()
+                # loss += self.criterion(out.squeeze(), labels.squeeze())
+                loss += cal_avg_ms_ssim(out, target, 3)
+
+            amp_outputs = [amp41, amp31, amp21, amp11, amp01]
+            for amp in amp_outputs:
+                # print(amp, loss)
+                amp_gt_us = amp_gt[0].unsqueeze(0)
+                amp = amp.cuda()
+                if amp_gt_us.shape[2:]!=amp.shape[2:]:
+                    amp_gt_us = F.interpolate(amp_gt_us, amp.shape[2:], mode='bilinear')
+                cross_entropy = (amp_gt_us * torch.log(amp+1e-10) + (1 - amp_gt_us) * torch.log(1 - amp+1e-10)) * -1
+                cross_entropy_loss = torch.mean(cross_entropy)
+                loss = loss + cross_entropy_loss * 0.1
+
+            loss.backward()
         else:
             loss = self.criterion(output.squeeze(), labels.squeeze())
-
             # compute gradients using back propagation
             loss.backward()
 
@@ -286,6 +307,11 @@ class Solver(object):
         mae = 0
         mse = 0
 
+        if self.dataset == 'mall':
+            save_freq = 30
+        else:
+            save_freq = 10
+
         with torch.no_grad():
             for i, (images, labels) in enumerate(tqdm(data_loader)):
                 images = to_var(images, self.use_gpu)
@@ -303,9 +329,20 @@ class Solver(object):
                 if self.model_name == 'MARUNet':
                     output = output[0] / 50
 
-                if self.save_output_plots and i % 10 == 0:
-                    model = self.pretrained_model.split('/')
-                    file_path = os.path.join(self.model_test_path, model[0], self.dataset_info + ' epoch ' + model[1])
+                model = self.pretrained_model.split('/')
+                file_path = os.path.join(self.model_test_path, model[0], self.dataset_info + ' epoch ' + model[1])
+                if self.fail_cases:
+                    l = labels[0].cpu().detach().numpy()
+                    o = output[0].cpu().detach().numpy()
+
+                    gt_count = round(np.sum(l))
+                    et_count = round(np.sum(o))
+
+                    diff = abs(gt_count - et_count)
+
+                    if (diff > 0):
+                        save_plots(os.path.join(file_path, 'failure cases', str(diff)), output, labels, ids)
+                if self.save_output_plots and i % save_freq == 0:
                     save_plots(file_path, output, labels, ids)
 
                 # _, top_1_output = torch.max(output.data, dim=1)

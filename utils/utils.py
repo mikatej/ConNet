@@ -70,3 +70,8 @@ def save_plots(file_path, output, labels, ids):
 
         text.set_visible(False)
 
+        # np.savetxt(file_path % (ids[i].replace('.jpg', '.txt')), o)
+
+def get_amp_gt_by_value(target, threshold=1e-5):
+    seg_map = (target>threshold).float().cuda()
+    return seg_map

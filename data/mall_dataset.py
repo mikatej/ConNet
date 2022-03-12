@@ -94,10 +94,9 @@ class MallDataset(TensorDataset):
         target = self.pull_target(index)
         height, width, _ = image.shape
 
-        # if self.image_transform is not None:
-        #     image, target = self.image_transform(image, target)
-        #     image = image[:, :, (2, 1, 0)]
-
+        # if self.mode == 'train':
+        #    image, target = self.image_transform(image, target)
+        #    image = image[:, :, (2, 1, 0)]
 
         ht = image.shape[0]
         wd = image.shape[1]
@@ -114,6 +113,7 @@ class MallDataset(TensorDataset):
         target = target * ((wd*ht)/(wd_1*ht_1))
 
         return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0), height, width
+        # return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0).permute(2, 0, 1), height, width
 
     def pull_image(self, index):
         """Returns an image from the dataset represented as an ndarray
