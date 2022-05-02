@@ -8,12 +8,17 @@ from torchvision.models import (alexnet, googlenet,
 from torchvision.models.detection import retinanet_resnet50_fpn
 import torch.nn as nn
 from models.CSRNet.CSRNet import CSRNet
+from models.CSRNet.model_student_vgg import CSRNet as CSRNetSKT
 from models.MCNN.network import weights_normal_init
 from models.MCNN.crowd_count import CrowdCounter
 from models.MARUNet.marunet import MARNet
+from models.MARUNet.student_marunet import MARNet as MARNetSKT
 
 from models.NLT.models.nlt_counter import NLT_Counter 
 # from models.NLT.config import cfg as nlt_cfg
+
+from models.MUSCO.musco_marunet_mall import MARNet as MARNetMUSCO_mall
+from models.MUSCO.musco_marunet_micc import MARNet as MARNetMUSCO_micc
 
 
 
@@ -119,6 +124,8 @@ def get_model(model_config,
 
     elif model_config == "CSRNet":
         model = CSRNet()
+    elif model_config == "CSRNetSKT":
+        model = CSRNetSKT(ratio=4)
 
     elif model_config == "MCNN":
         model = CrowdCounter()
@@ -132,9 +139,15 @@ def get_model(model_config,
     elif model_config == "MARUNet":
         # torch.backends.cudnn.enabled = False
         model = MARNet(objective='dmp+amp')
+    elif model_config == "MARUNetSKT":
+        model  = MARNetSKT(ratio=4, bn=True)
 
     elif model_config == "RetinaNet":
         model = retinanet_resnet50_fpn(pretrained=imagenet_pretrain, progress=True)
+
+    elif "MUSCO" in model_config:
+        if model_config == "MARUNetMUSCO_mall":
+            model = MARNetMUSCO_mall(objective='dmp+amp')
 
     if imagenet_pretrain is not True:
         init_weights(model)
