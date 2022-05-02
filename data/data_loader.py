@@ -19,7 +19,7 @@ def get_loader(config):
     loader = None
     targets_resize = 1
 
-    if config.model == 'CSRNet' or config.model == 'CAN':
+    if 'CSRNet' in config.model:
         targets_resize = 2 ** 3
     elif config.model == 'MCNN':
         targets_resize = 2 ** 2
