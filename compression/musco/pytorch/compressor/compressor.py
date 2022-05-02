@@ -86,6 +86,8 @@ class Compressor():
         start = (self.curr_iter * self.ft_every) % len(self.lnames)
         end = start + self.ft_every
     
+        start = int(start)
+        end = int(end)
         lnames = self.lnames[start : end]
         
         self.curr_iter += 1
