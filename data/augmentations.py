@@ -3,29 +3,6 @@ import torch
 import numpy as np
 from numpy import random
 
-
-def intersect(box_a,
-              box_b):
-
-    max_xy = np.minimum(box_a[:, 2:], box_b[2:])
-    min_xy = np.maximum(box_a[:, :2], box_b[:2])
-    intersection = np.clip((max_xy - min_xy), a_min=0, a_max=np.inf)
-
-    return intersection[:, 0] * intersection[: 1]
-
-
-def jaccard_numpy(box_a,
-                  box_b):
-
-    intersection = intersect(box_a, box_b)
-    area_a = ((box_a[:, 2] - box_a[:, 0]) * (box_a[:, 3] - box_a[:, 1]))
-    area_b = ((box_b[2] - box_b[0]) * (box_b[3] - box_b[1]))
-
-    union = area_a + area_b - intersection
-
-    return intersection / union
-
-
 class Compose(object):
     """This class applies a list of transformation to an image."""
 
@@ -50,11 +27,11 @@ class Compose(object):
             image {np.ndarray} -- image pixels represented as np.ndarray
 
         Keyword Arguments:
-            label {str} -- corresponding class of the image (default: {None})
+            label {np.ndarray} -- target density map represented as np.ndarray (default: {None})
 
         Returns:
-            np.ndarray, str -- transformed image pixels, corresponding class
-            of the image
+            np.ndarray, np.ndarray -- transformed image pixels, density map 
+                represented as np.ndarray
         """
 
         for transform in self.transforms:
@@ -80,11 +57,11 @@ class ConvertToFloat(object):
             image {np.ndarray} -- image pixels represented as np.ndarray
 
         Keyword Arguments:
-            label {str} -- corresponding class of the image (default: {None})
+            label {np.ndarray} -- target density map represented as np.ndarray (default: {None})
 
         Returns:
-            np.ndarray, str -- image pixels casted to floating-point data type,
-            corresponding class of the image
+            np.ndarray, np.ndarray -- image pixels casted to floating-point data type,
+                density map represented as np.ndarray
         """
 
         return image.astype(np.float32), label.astype(np.float32)
@@ -113,11 +90,11 @@ class SubtractMeans(object):
             image {np.ndarray} -- image pixels represented as np.ndarray
 
         Keyword Arguments:
-            label {str} -- corresponding class of the image (default: {None})
+            label {np.ndarray} -- target density map represented as np.ndarray (default: {None})
 
         Returns:
-            np.ndarray, str -- image pixels subtracted by the mean,
-            corresponding class of the image
+            np.ndarray, np.ndarray -- image pixels subtracted by the mean,
+                density map represented as np.ndarray
         """
 
         image = image.astype(np.float32)
@@ -148,11 +125,11 @@ class Resize(object):
             image {np.ndarray} -- image pixels represented as np.ndarray
 
         Keyword Arguments:
-            label {str} -- corresponding class of the image (default: {None})
+            label {np.ndarray} -- target density map represented as np.ndarray (default: {None})
 
         Returns:
-            np.ndarray, str -- pixels of the resized image, corresponding class
-            of the image
+            np.ndarray, np.ndarray -- pixels of the resized image, density map represented 
+                as np.ndarray
         """
 
         image = cv2.resize(image, (self.size, self.size))
@@ -188,11 +165,11 @@ class ConvertColor(object):
             image {np.ndarray} -- image pixels represented as np.ndarray
 
         Keyword Arguments:
-            label {str} -- corresponding class of the image (default: {None})
+            label {np.ndarray} -- target density map represented as np.ndarray (default: {None})
 
         Returns:
-            np.ndarray, str -- pixels of the image converted to the output
-            color space, corresponding class of the image
+            np.ndarray, np.ndarray -- pixels of the image converted to the output
+                color space, density map represented as np.ndarray
         """
 
         if self.current == 'BGR' and self.transform == 'HSV':
@@ -205,17 +182,15 @@ class ConvertColor(object):
         return image, label
 
 class ChangeBrightness(object):
-    """This class adjusts the brightness of the image. This adds a random
+    """This class adjusts the brightness of the image. This adds a specified
     constant to the pixel values of the image."""
 
     def __init__(self,
                  delta=32.0):
-        """Class constructor for RandomBrightness
+        """Class constructor for ChangeBrightness
 
         Keyword Arguments:
-            delta {int} -- lower bound and upper bound of the interval used
-            in generating a random number from a uniform distribution to adjust
-            brightness (default: {32.0})
+            delta {int} -- value to be added to each pixel of the image (default: {32.0})
         """
 
         super(ChangeBrightness, self).__init__()
@@ -231,25 +206,41 @@ class ChangeBrightness(object):
             image {np.ndarray} -- image pixels represented as np.ndarray.
 
         Keyword Arguments:
-            label {str} -- corresponding class of the image (default: {None})
+            label {np.ndarray} -- target density map represented as np.ndarray (default: {None})
 
         Returns:
-            np.ndarray, str -- image pixels with adjusted brightness,
-            corresponding class of the image
+            np.ndarray, np.ndarray -- image pixels with adjusted brightness,
+                density map represented as np.ndarray
         """
 
+        # if delta is positive, increase the brightness
         if self.delta > 0:
             image = self.increase_brightness(image, value=self.delta)
+
+        # if delta is negative, decrease the brightness
         elif self.delta < 0:
             image = self.decrease_brightness(image, value=self.delta)
 
         return image, label
 
-    def increase_brightness(self, img, value=50):
+    def increase_brightness(self, img, value):
+        """
+        Generates the image with increased brightness
+
+        Arguments:
+            img {np.ndarray} -- image pixels represented as np.ndarray.
+            value {int} -- value to be added to the pixels
+
+        Returns:
+            np.ndarray -- image pixels with adjusted brightness
+        """
+
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
 
         value = int(value)
+
+        # final integer values in v[] must not exceed 255
         lim = 255 - value
         v[v > lim] = 255
         v[v <= lim] += value
@@ -258,11 +249,24 @@ class ChangeBrightness(object):
         img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
         return img
 
-    def decrease_brightness(self, img, value=30):
+    def decrease_brightness(self, img, value):
+        """
+        Generates the image with decreased brightness
+
+        Arguments:
+            img {np.ndarray} -- image pixels represented as np.ndarray.
+            value {int} -- value to be added to the pixels
+
+        Returns:
+            np.ndarray -- image pixels with adjusted brightness
+        """
+
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
 
         value = int(abs(value))
+
+        # final integer values in v[] must not be less than 0
         lim = value
         v[v < lim] = 0
         v[v >= lim] -= value
@@ -272,17 +276,16 @@ class ChangeBrightness(object):
         return img
 
 class LowerResolution(object):
-    """This class adjusts the brightness of the image. This adds a random
-    constant to the pixel values of the image."""
+    """This class lowers the resolution of the image. This downscales the image and
+    resizes it back to its original size with interpolation set to nearest neighbor."""
 
     def __init__(self,
                  scale=3):
-        """Class constructor for RandomBrightness
+        """Class constructor for LowerResolution
 
         Keyword Arguments:
-            delta {int} -- lower bound and upper bound of the interval used
-            in generating a random number from a uniform distribution to adjust
-            brightness (default: {32.0})
+            scale {int} -- the value to scale the image down to (1/[scale] resolution)
+                (default: {3})
         """
 
         super(LowerResolution, self).__init__()
@@ -298,11 +301,11 @@ class LowerResolution(object):
             image {np.ndarray} -- image pixels represented as np.ndarray.
 
         Keyword Arguments:
-            label {str} -- corresponding class of the image (default: {None})
+            label {np.ndarray} -- target density map represented as np.ndarray (default: {None})
 
         Returns:
-            np.ndarray, str -- image pixels with adjusted brightness,
-            corresponding class of the image
+            np.ndarray, np.ndarray -- image pixels with adjusted resolution,
+                    density map with adjusted resolution
         """
 
         if self.scale > 1.0:
@@ -335,11 +338,11 @@ class ToCV2Image(object):
             image {torch.Tensor} -- image pixels represented as torch.Tensor.
 
         Keyword Arguments:
-            label {str} -- corresponding class of the image (default: {None})
+            label {np.ndarray} -- target density map represented as np.ndarray (default: {None})
 
         Returns:
-            np.ndarray, str -- image pixels represented as np.ndarray,
-            corresponding class of the image
+            np.ndarray, np.ndarray -- image pixels represented as np.ndarray,
+                density map represented as np.ndarray
         """
 
         # permute() is used to switch the channels from RGB to BGR
@@ -366,11 +369,11 @@ class ToTensor(object):
             image {np.ndarray} -- image pixels represented as np.ndarray.
 
         Keyword Arguments:
-            label {str} -- corresponding class of the image (default: {None})
+            label {np.ndarray} -- target density map represented as np.ndarray (default: {None})
 
         Returns:
-            torch.Tensor, str -- image pixels represented as torch.Tensor,
-            corresponding class of the image
+            torch.Tensor, np.ndarray -- image pixels represented as torch.Tensor,
+                density map represented as np.ndarray
         """
 
         # permute() is used to switch the channels from BGR to RGB
@@ -382,8 +385,6 @@ class Augmentations(object):
     This is used for training the model."""
 
     def __init__(self,
-                 # size,
-                 # mean,
                  brightness=0,
                  scale=1):
         """Class constructor for Augmentations
@@ -394,18 +395,6 @@ class Augmentations(object):
         """
 
         super(Augmentations, self).__init__()
-        # self.size = size
-        # self.mean = mean
-        # self.augment = Compose([ConvertToFloat(),
-        #                         PhotometricDistort(),
-        #                         RandomSampleCrop(),
-        #                         RandomMirror(),
-        #                         # Resize(self.size),
-        #                         SubtractMeans(self.mean)])
-
-        # self.augment = Compose([RandomSampleCrop(),
-        #                         RandomMirror()])
-
         self.augment = Compose([ChangeBrightness(delta=brightness),
                                 LowerResolution(scale=scale)])
 
@@ -421,8 +410,8 @@ class Augmentations(object):
             label {str} -- corresponding class of the image
 
         Returns:
-            np.ndarray, str -- image pixels applied with different augmentation
-            techniques, corresponding class of the image
+            np.ndarray, np.ndarray -- image pixels applied with different augmentation
+                techniques, density map represented as np.ndarray
         """
 
         return self.augment(image, label)
@@ -434,17 +423,14 @@ class BaseTransform(object):
     image pixels. This is used for testing the model."""
 
     def __init__(self,
-                 # size,
                  mean):
         """Class constructor for BaseTransform
 
         Arguments:
-            size {int} -- output size
             mean {tuple} -- mean
         """
 
         super(BaseTransform, self).__init__()
-        # self.size = size
         self.mean = np.array(mean, dtype=np.float32)
 
     def __call__(self,
@@ -456,18 +442,15 @@ class BaseTransform(object):
             image {np.ndarray} -- image pixels represented as np.ndarray.
 
         Keyword Arguments:
-            label {str} -- corresponding class of the image (default: {None})
+            label {np.ndarray} -- target density map represented as np.ndarray (default: {None})
 
         Returns:
-            np.ndarray, str -- image pixels applied with different augmentation
-            techniques, corresponding class of the image
+            np.ndarray, np.ndarray -- image pixels applied with different augmentation
+                techniques, density map represented as np.ndarray
         """
 
-        # dimensions = (self.size, self.size)
-        # image = cv2.resize(image, dimensions).astype(np.float32)
         image = image.astype(np.float32)
         image -= self.mean
         image = image.astype(np.float32)
 
-        # label = cv2.resize(image, dimensions).astype(np.float32)
         return image, label

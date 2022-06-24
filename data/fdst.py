@@ -15,7 +15,6 @@ class FDST(Dataset):
     def __init__(self,
                  data_path,
                  mode,
-                 new_size,
                  density_sigma,
                  image_transform=None,
                  targets_resize=1,
@@ -25,14 +24,15 @@ class FDST(Dataset):
         Arguments:
             data_path {string} -- root path to the FER2013 dataset
             mode {string} -- current mode of the network
-            new_size {int} -- rescaled size of the image
-            image_transform {object} -- produces different dataset
-            augmentation techniques
+            density_sigma {string} -- folder name where density maps are saved
+            image_transform {object} -- applies augmentation to images
+            targets_resize {int} -- resizes the target according to output size
+                                    of a given model
+            outdoor {boolean} -- toggles whether indoor or outdoor subset is used
         """
 
         self.data_path = data_path
         self.mode = mode
-        self.new_size = new_size
         self.image_transform = image_transform
         self.targets_resize = targets_resize
 
@@ -79,8 +79,8 @@ class FDST(Dataset):
             index {int} -- index of the item to be pulled from the list of ids
 
         Returns:
-            torch.Tensor, string -- Tensor representation of the pulled image
-            and string representation of the class of the image
+            torch.Tensor, torch.Tensor -- Tensor representation of the pulled image
+            and Tensor representation of the class of the image
         """
         image, target, _, _ = self.pull_item(index)
 
@@ -97,18 +97,22 @@ class FDST(Dataset):
             index {int} -- index of the item to be pulled from the list of ids
 
         Returns:
-            torch.Tensor, string, int, int -- Tensor representation of the
-            pulled image, string representation of the class of the image,
+            torch.Tensor, torch.Tensor, int, int -- Tensor representation of the
+            pulled image, Tensor representation of the class of the image,
             height of the image, width of the image
         """
+
+        # get image and density map target
         image_id = self.ids[index]
 
         image = cv2.imread(self.image_path % image_id)
         target = self.pull_target(index)
 
+        # apply augmentation
         if self.image_transform != None:
             image, target = self.image_transform(image, target)
 
+        # get original height and width of image
         height, width, _ = image.shape
         ht = image.shape[0]
         wd = image.shape[1]
@@ -116,29 +120,14 @@ class FDST(Dataset):
         wd_1 = int((wd/4)*4)
 
         image = cv2.resize(image,(wd_1,ht_1))
-        # image = image.reshape((1,image.shape[0],image.shape[1]))
 
-        # out_size = (target.shape[1] // self.targets_resize, target.shape[0] // self.targets_resize)
-        # target = cv2.resize(target, out_size)
-        # target = target * ((wd * ht) / out_size[0] * out_size[1])
-
-        # target = cv2.resize(target,(wd_1,ht_1))
-        # target = target * ((wd*ht)/(wd_1*ht_1))
-
+        # resize the target according to output size of the model
         wd_1 = int(wd_1/self.targets_resize)
         ht_1 = int(ht_1/self.targets_resize)
         target = cv2.resize(target,(wd_1,ht_1))                
         target = target * ((wd*ht)/(wd_1*ht_1))
-        # target = target.reshape((1, target.shape[0], target.shape[1]))
-
-
-        # print("actual count: {}".format(np.sum(target)))
-        # image = image.reshape((1, image.shape[0], image.shape[1]))
-        # target = target.reshape((1, target.shape[0], target.shape[1]))
 
         return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0), height, width
-        # return torch.from_numpy(image), torch.from_numpy(target), height, width
-
 
     def pull_image(self, index):
         """Returns an image from the dataset represented as an ndarray
@@ -160,8 +149,7 @@ class FDST(Dataset):
             index {int} -- index of the item to be pulled from the list of ids
 
         Returns:
-            list -- list of x- and y-coordinates of the people in an image from
-            the dataset
+            np.array -- np.array representation of the groundtruth density map
         """
         target = self.targets[index]
         target_path = self.target_path % target
@@ -170,7 +158,7 @@ class FDST(Dataset):
         target = target['density']
         target = np.array(target)
 
-        return target # torch.unsqueeze(torch.from_numpy(target), 0)
+        return target 
 
     def pull_tensor(self, index):
         """Returns an image from the dataset represented as a tensor
