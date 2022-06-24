@@ -337,7 +337,7 @@ class Solver(object):
                 labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
                 labels = torch.stack(labels)
                 images = images.float()
-
+                
                 timer.tic()
                 output = self.model(images)
                 elapsed += timer.toc(average=False)

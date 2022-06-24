@@ -22,6 +22,10 @@ from collections import defaultdict
 import copy
 import shutil
 
+from compression.skt_utils import AverageMeter, cal_para
+from compression.skt_distillation import cosine_similarity, scale_process, cal_dense_fsp, upsample_process
+
+
 class Compressor(object):
 
     DEFAULTS = {}
@@ -63,10 +67,7 @@ class Compressor(object):
 
         elif self.compression == 'musco':
             # self.build_model()
-            if self.musco_ft_only == True:
-                self.musco_finetune()
-            else:
-                self.musco()
+            self.musco()
 
         else:
             raise Exception("Compression technique ({}) not implemented".format(self.compression))
@@ -84,7 +85,7 @@ class Compressor(object):
         criterion = nn.MSELoss()
 
         optimizer = None
-        if 'MARUNet' in self.model_name:
+        if 'MARUNet' in self.model_name or self.compression == 'skt':
             optimizer = optim.Adam(model.parameters(), lr = self.lr, weight_decay = self.weight_decay)
         else:
             optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
@@ -146,16 +147,39 @@ class Compressor(object):
         write_print(self.output_txt,
                     'loaded trained model {}'.format(self.pretrained_model))
 
-    def save_model(self, model, e):
-        """
-        Saves a model per e epoch
-        """
-        path = os.path.join(
-            self.output_txt[:self.output_txt.rfind('\\')],
-            '{}.pth'.format(self.version, e + 1)
-        )
+    def save_checkpoint(self, state, filename='checkpoint.pth.tar'):
+        # torch.save(state, os.path.join(path, filename))
 
-        torch.save(model.state_dict(), path)
+        torch.save(state, os.path.join(
+            self.output_txt[:self.output_txt.rfind('\\')]),
+            filename)
+        
+    def print_loss_log(self, start_time, iters_per_epoch, e, i, loss, num_epochs):
+        """
+        Prints the loss and elapsed time for each epoch
+        """
+        total_iter = num_epochs * iters_per_epoch
+        cur_iter = e * iters_per_epoch + i
+
+        elapsed = time.time() - start_time
+        total_time = (total_iter - cur_iter) * elapsed / (cur_iter + 1)
+        epoch_time = (iters_per_epoch - i) * elapsed / (cur_iter + 1)
+
+        epoch_time = str(datetime.timedelta(seconds=epoch_time))
+        total_time = str(datetime.timedelta(seconds=total_time))
+        elapsed = str(datetime.timedelta(seconds=elapsed))
+
+        log = "Elapsed {}/{} -- {}, Epoch [{}/{}], Iter [{}/{}], " \
+              "loss: {:.15f}".format(elapsed,
+                                    epoch_time,
+                                    total_time,
+                                    e + 1,
+                                    num_epochs,
+                                    i + 1,
+                                    iters_per_epoch,
+                                    loss)
+
+        write_print(self.output_txt, log)
 
     '''
         MUSCO IMPLEMENTATION
@@ -236,29 +260,24 @@ class Compressor(object):
         self.compressor_step = 0
         while not compressor.done:
             self.compressor_step += 1
+
+            # COMPRESSION
             write_print(self.output_txt, "\n Compress (STEP {})".format(self.compressor_step))
             compressor.compression_step()
             self.print_num_params(compressor.compressed_model)
-            # self.print_network(self.model, "original")
-            # raise Exception
-            # self.print_network(compressor.compressed_model, "{} MODEL MUSCO COMPRESSION STEP {}".format(self.model_name.upper(), self.compressor_step))
 
+            # FINE-TUNING
             write_print(self.output_txt, '\n Fine-tune')
-            # self.optimizer, self.criterion = self.build_optimizer_loss(compressor.compressed_model.to(device))
             self.optimizer, self.criterion = self.build_optimizer_loss(compressor.compressed_model.to(device))
 
             self.musco_best_state_dict = None
-
-
-            # try:
-            # write_print(self.output_txt, "MUSCO COMPRESSION STEP " + str(self.compressor_step))
             self.compression_save_path = self.output_txt[:self.output_txt.rfind('\\')] + "/compression step {}".format(self.compressor_step)
+            
             self.musco_train(compressor.compressed_model.to(device), self.musco_ft_epochs, self.data_loaders['train'], eval_freq=self.musco_ft_checkpoint, checkpoint_file_name="compression step {}.pth.tar".format(self.compressor_step))
-            # mae, mse, fps = self.eval(compressor.compressed_model.to(device), self.data_loaders['val'])
-            # continue
-
+            
             write_print(self.output_txt, " ")
 
+            # reload best performing epoch's weights into the compressed model
             if self.musco_best_state_dict is not None:
                 compressor.compressed_model.load_state_dict(self.musco_best_state_dict)
 
@@ -266,67 +285,14 @@ class Compressor(object):
                 write_print(self.output_txt, "\t{}".format(self.musco_best_log))
 
             write_print(self.output_txt, "\n")
-            # except Exception as e:
-            #     write_print('failed_layers.txt', "FAILED {}".format(lnames_compress_me[self.compressor_step-1]))
-            #     write_print('failed_layers.txt', '\t {}'.format(e))
 
         # mae, mse, fps = self.eval(compressor.compressed_model.to(device), self.data_loaders['val'])
         # write_print(self.output_txt,  "MAE: {:.4f},  MSE: {:.4f},  FPS: {:.4f}".format(mae, mse, fps))
 
         stats_compressed = FlopCo(compressor.compressed_model.to(device), device = device)
         write_print(self.output_txt, str(1/(model_stats.total_flops / stats_compressed.total_flops)))
-        # print(best_mae)
-
         self.print_network(compressor.compressed_model, "FINAL {}-COMPRESSED {} MODEL".format(self.compression.upper(), self.model_name.upper()))
-        self.save_model(compressor.compressed_model, -1)
-
-    def musco_finetune(self):
-        if self.use_gpu:
-            device = 'cuda'
-        else:
-            device = 'cpu'
-
-        self.model.to(device)
-        # self.optimizer, self.criterion = self.build_optimizer_loss(self.model)
-        self.compression_save_path = self.output_txt[:self.output_txt.rfind('\\')] + "/training outputs"
-        self.musco_train(self.model, self.musco_ft_epochs, self.data_loaders['train'], eval_freq=self.musco_ft_checkpoint)
-        # for epoch in range(num_epochs):
-
-    def print_loss_log(self, start_time, iters_per_epoch, e, i, loss, num_epochs):
-        """
-        Prints the loss and elapsed time for each epoch
-        """
-        total_iter = num_epochs * iters_per_epoch
-        cur_iter = e * iters_per_epoch + i
-
-        elapsed = time.time() - start_time
-        total_time = (total_iter - cur_iter) * elapsed / (cur_iter + 1)
-        epoch_time = (iters_per_epoch - i) * elapsed / (cur_iter + 1)
-
-        epoch_time = str(datetime.timedelta(seconds=epoch_time))
-        total_time = str(datetime.timedelta(seconds=total_time))
-        elapsed = str(datetime.timedelta(seconds=elapsed))
-
-        log = "Elapsed {}/{} -- {}, Epoch [{}/{}], Iter [{}/{}], " \
-              "loss: {:.15f}".format(elapsed,
-                                    epoch_time,
-                                    total_time,
-                                    e + 1,
-                                    num_epochs,
-                                    i + 1,
-                                    iters_per_epoch,
-                                    loss)
-
-        write_print(self.output_txt, log)
-
-    def save_checkpoint(self, state, path, filename='checkpoint.pth.tar'):
-        torch.save(state, os.path.join(path, filename))
-        # epoch = state['epoch']
-        # if mae_is_best:
-        #     shutil.copyfile(os.path.join(path, filename), os.path.join(path, 'epoch'+str(epoch)+'_best_mae.pth.tar'))
-        # if mse_is_best:
-        #     shutil.copyfile(os.path.join(path, filename), os.path.join(path, 'epoch'+str(epoch)+'_best_mse.pth.tar'))
-
+        # self.save_model(compressor.compressed_model, -1)
 
     def model_step(self, model, images, labels, epoch):
         """
@@ -402,7 +368,7 @@ class Compressor(object):
         # return loss
         return loss
 
-    def musco_train(self, model, num_epochs, data_loader, eval_freq=None, checkpoint_file_name=None):
+    def musco_train(self, model, num_epochs, data_loader, eval_freq=None, checkpoint_file_name="checkpoint"):
         """
         Training process
         """
@@ -412,23 +378,6 @@ class Compressor(object):
 
         curr_best_mae = None
         curr_best_mse = None
-
-        # checkpoint_file_name = "compression step {}.pth.tar".format(self.compressor_step)
-
-        # start with a trained model if exists
-        # if self.pretrained_model:
-        #     start = int(self.pretrained_model.split('/')[-1])
-
-        #     for x in self.learning_sched:
-        #         if start >= x:
-        #             sched +=1
-        #             self.lr /= 10
-        #         else:
-        #             break
-
-        #     print("LEARNING RATE: ", self.lr, sched)
-        # else:
-        #     start = 0
 
         # start training
         write_print(self.output_txt, "TRAIN")
@@ -468,59 +417,21 @@ class Compressor(object):
 
                     self.musco_best_log = log
 
-                    if self.musco_ft_only is True:
-                        try:
-                            i += 1
-                        except:
-                            i = 0
-                        checkpoint_file_name = "ft_epoch_{}_mae_{}_mse_{}.pth".format(e,
-                            str(mae).replace(".","_"),
-                            str(mse).replace(".","_"))
-                        checkpoint = copy.deepcopy(model.state_dict())
-
-                    else:
-                        checkpoint = {
-                            'architecture': model,
-                            'state_dict': copy.deepcopy(model.state_dict()),
-                            'optimizer': copy.deepcopy(self.optimizer.state_dict()),
-                            'loss': loss,
-                            'mae': mae,
-                            'mse': mse
-                        }
+                    checkpoint = {
+                        'architecture': model,
+                        'state_dict': copy.deepcopy(model.state_dict()),
+                        'optimizer': copy.deepcopy(self.optimizer.state_dict()),
+                        'loss': loss,
+                        'mae': mae,
+                        'mse': mse
+                    }
 
                     self.save_checkpoint(checkpoint,
-                        self.output_txt[:self.output_txt.rfind('\\')],
+                        # self.output_txt[:self.output_txt.rfind('\\')],
                         checkpoint_file_name)
 
                 if (e+1) < num_epochs:
                     write_print(self.output_txt, "TRAIN")
-
-            # save model
-            # if (e + 1) % self.model_save_step == 0:
-            #     self.save_model(e)
-
-            # num_sched = len(self.learning_sched)
-            # if num_sched != 0 and sched < num_sched:
-            #     # if (e + 1) == self.learning_sched[sched]:
-            #     if (e + 1) in self.learning_sched:
-            #         self.lr /= 10
-            #         print('Learning rate reduced to', self.lr)
-            #         sched += 1
-
-        # print losses
-        # write_print(self.output_txt, '\n--Losses--')
-        # for e, loss in self.losses:
-        #     write_print(self.output_txt, str(e) + ' {:.10f}'.format(loss))
-
-        # # print top_1_acc
-        # write_print(self.output_txt, '\n--Top 1 accuracy--')
-        # for e, acc in self.top_1_acc:
-        #     write_print(self.output_txt, str(e) + ' {:.4f}'.format(acc))
-
-        # # print top_5_acc
-        # write_print(self.output_txt, '\n--Top 5 accuracy--')
-        # for e, acc in self.top_5_acc:
-        #     write_print(self.output_txt, str(e) + ' {:.4f}'.format(acc))
 
     def eval(self, compressed_model, data_loader, save_path=None):
         """
@@ -545,9 +456,9 @@ class Compressor(object):
         else:
             save_freq = 30
 
-        if not self.save_output_plots:
-            save_freq = int(len(data_loader) / 3)
-            self.save_output_plots = True
+        # if not self.save_output_plots:
+        #     save_freq = int(len(data_loader) / 3)
+        #     self.save_output_plots = True
 
         if save_path is None:
             save_path = self.model_test_path
@@ -559,8 +470,8 @@ class Compressor(object):
                 labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
                 labels = torch.stack(labels)
 
-                timer.tic()
                 images = images.float()
+                timer.tic()
                 output = compressed_model(images)
                 elapsed += timer.toc(average=False)
 
@@ -577,8 +488,6 @@ class Compressor(object):
                         file_path = save_path
                     save_plots(file_path, output, labels, ids)
 
-                # _, top_1_output = torch.max(output.data, dim=1)
-                # out.append(str(sm(output.data).tolist()))
                 y_true = torch.cat((y_true, labels))
                 y_pred = torch.cat((y_pred, output))
 
@@ -596,27 +505,194 @@ class Compressor(object):
 
         return mae, mse, fps
 
-    def calibrate(model, device, train_loader, max_iters = 1000,
-                  freeze_lnames = None):
+        
 
-        model.to(device).train()
-        for pname, p in model.named_parameters():
+    '''
+        SKT IMPLEMENTATION
+    '''
 
-            if pname.strip('.weight').strip('.bias')  in freeze_lnames:
-                p.requires_grad = False
+    def skt(self):
+        self.student_model = get_model('{}SKT'.format(self.model_name),
+                               self.backbone_model,
+                               self.imagenet_pretrain,
+                               self.model_save_path,
+                               self.input_channels,
+                               self.class_count)
 
-        with torch.no_grad():
-            for i, (data, _) in enumerate(loaders['train']):
-                _ = model(data.to(device))
+        # 
+        cal_para(self.student_model)        # include 1x1 conv transform parameters
+        self.model.regist_hook()            # use hook to get teacher's features
+    
+        if self.use_gpu:
+            self.model.cuda()
+            self.student_model.cuda()
 
-                if i%50 == 0:
-                    print('hey')
+        self.optimizer, _ = self.build_optimizer_loss()
 
-                if i > max_iters:
-                    break
+        best_mae, best_mse = 1e3, 1e3
+        for epoch in range(0, self.num_epochs):
+            self.compression_save_path = self.output_txt[:self.output_txt.rfind('\\')] + "/compression step {}".format(epoch)
+            
+            print("TRAIN")
+            self.skt_train(self.model, self.student_model, self.criterion)
+            print("VAL")
+            mae, mse = self.eval(self.student_model, self.data_loaders['val'])
+            print("MAE: {.3f}, MSE: {.3f}  |  best_MAE: {.3f}, best_MSE: {.3f}".format(mae, mse, best_mae, best_mse))
+            print()
 
-                del data
-                torch.cuda.empty_cache()
+            if self.skt_save_freq != 0 and (epoch+1) % self.skt_save_freq == 0:
+                checkpoint = {
+                    'state_dict': copy.deepcopy(self.student_model.state_dict()),
+                    'mae': mae,
+                    'mse': mse,
+                    'best_mae': best_mae,   
+                    'best_mse': best_mse
+                }
 
-        model.eval()
-        return model
+                self.save_checkpoint(checkpoint,
+                    "epoch_{}".format(epoch+1))
+                continue
+
+            if (mae < best_mae) or (mse < best_mse):
+                best_mae = min(best_mae, mae)
+                best_mse = min(best_mse, mse)
+
+                checkpoint = {
+                    'state_dict': copy.deepcopy(self.student_model.state_dict()),
+                    'mae': mae,
+                    'mse': mse,
+                    'best_mae': best_mae,
+                    'best_mse': best_mse
+                }
+
+                self.save_checkpoint(checkpoint,
+                    "epoch_{}_mae_{}_mse_{}".format(
+                        epoch+1,
+                        "{:.3f}".format(mae).replace('.', '-'),
+                        "{:.3f}".format(mse).replace('.', '-')
+                    )
+                )
+
+    def skt_train(self, teacher, student, criterion):
+        losses_h = AverageMeter()
+        losses_s = AverageMeter()
+        losses_fsp = AverageMeter()
+        losses_cos = AverageMeter()
+        losses_ssim = AverageMeter()
+
+        data_loader = self.data_loaders['train']
+        teacher.eval()
+        student.train()
+        for i, (images, labels) in enumerate(tqdm(data_loader)):
+            images = to_var(images, self.use_gpu)
+
+            labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
+            labels = torch.stack(labels)
+
+            # get teacher output
+            with torch.no_grad():
+                teacher_output = teacher(img)
+
+                if self.model_name == 'MARUNet':
+                    teacher.features.append(teacher_output[0])
+                    teacher_fsp_features = [scale_process(teacher.features, scale = [4, 3, 2, 1, None, None, None, 2, 1, 4])]
+                elif self.model_name == 'CSRNet':
+                    teacher.features.append(teacher_output)
+                    teacher_fsp_features = [scale_process(teacher.features, min_x=60)]
+                teacher_fsp = cal_dense_fsp(teacher_fsp_features)
+
+            # get student output
+            if self.model_name == 'MARUNet':
+                student_features, student_outputs = student(img)
+            elif self.model_name == 'CSRNet':
+                student_features = student(img)
+            student_output = student_features[-1]
+
+            # scale student output
+            if self.model_name == 'MARUNet':
+                student_fsp_features = [scale_process(student_features,  scale = [4, 3, 2, 1, None, None, None, 2, 1, 4])]
+            elif self.model_name == 'CSRNet':
+                student_fsp_features = [scale_process(student_features, min_x=None)]
+            student_fsp = cal_dense_fsp(student_fsp_features)
+
+            # get loss
+            if self.model_name == 'MARUNet':
+                loss_h = self.marunet_loss(student_outputs, target)# * args.lamb_h# * 1e6
+                loss_s = self.marunet_loss(student_outputs, teacher_output)# * args.lamb_h# * 1e6
+                divide_val = 50.
+            elif self.model_name == 'CSRNet':
+                loss_h = criterion(student_output, target)
+                loss_s = criterion(student_output, teacher_output)
+                divide_val = 1.
+
+            loss_fsp = torch.tensor([0.], dtype=torch.float).cuda()
+            if args.lamb_fsp:
+                loss_f = []
+                assert len(teacher_fsp) == len(student_fsp)
+                for t in range(len(teacher_fsp)):
+                    loss_f.append(criterion(teacher_fsp[t] / divide_val, student_fsp[t] / divide_val))
+                loss_fsp = sum(loss_f) * self.skt_lamb_fsp
+
+            loss_cos = torch.tensor([0.], dtype=torch.float).cuda()
+            if args.lamb_cos:
+                loss_c = []
+                for t in range(len(student_features) - 1):
+                    loss_c.append(cosine_similarity(student_features[t] / divide_val, teacher.features[t] / divide_val))
+                loss_cos = sum(loss_c) * self.skt_lamb_cos
+
+            # calculate total loss
+            loss = loss_h + loss_s + loss_fsp + loss_cos # + loss_ssim
+
+            losses_h.update(loss_h.item(), img.size(0))
+            losses_s.update(loss_s.item(), img.size(0))
+            losses_fsp.update(loss_fsp.item(), img.size(0))
+            losses_cos.update(loss_cos.item(), img.size(0))
+            
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            if i == self.skt_print_freq:
+                print(
+                      'Loss_h {loss_h.avg:.4f}  '
+                      'Loss_s {loss_s.avg:.4f}  '
+                      'Loss_fsp {loss_fsp.avg:.4f}  '
+                      'Loss_cos {loss_kl.avg:.4f}  '
+                    .format(
+                    loss_h=losses_h, loss_s=losses_s,
+                    loss_fsp=losses_fsp, loss_kl=losses_cos))
+
+    def marunet_loss(self, student_output, target):
+        loss = 0
+
+        # type(target) == tuple means that the target is teacher_output
+        # otherwise, target is the groundtruth
+        
+        if type(target) != tuple:
+            amp_gt = [get_amp_gt_by_value(l) for l in target]
+            amp_gt = torch.stack(amp_gt).cuda()
+            amp_gt = amp_gt[0]
+            target = 50 * target[0].float().unsqueeze(1).cuda()
+        
+        for i, out in enumerate(student_output[:6]):
+            if type(target) != tuple:
+                tar = target
+            else:
+                tar = student_output[i].cuda()
+
+            loss += cal_avg_ms_ssim(out, tar, 3)
+
+        for i, amp in enumerate(student_output[6:]):
+            if type(target) != tuple:
+                amp_gt_us = amp_gt.unsqueeze(0)
+            else:
+                amp_gt_us = student_output[i+6].cuda()
+
+            amp = amp.cuda()
+            if amp_gt_us.shape[2:]!=amp.shape[2:]:
+                amp_gt_us = F2.interpolate(amp_gt_us, amp.shape[2:], mode='bilinear')
+            cross_entropy = (amp_gt_us * torch.log(amp+1e-10) + (1 - amp_gt_us) * torch.log(1 - amp+1e-10)) * -1
+            cross_entropy_loss = torch.mean(cross_entropy)
+            loss = loss + cross_entropy_loss * 0.1
+
+        return loss

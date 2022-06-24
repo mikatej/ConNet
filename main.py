@@ -209,6 +209,7 @@ if __name__ == '__main__':
                         help='Path for saving weights')
     parser.add_argument('--model_test_path', type=str, default='./tests',
                         help='Path for saving test results')
+    parser.add_argument('--weights_json_path', type=str, default='best_models.json')
     parser.add_argument('--group_save_path', type=str, default=None)
 
     # epoch step size
@@ -223,9 +224,10 @@ if __name__ == '__main__':
     parser.add_argument('--musco_ft_checkpoint', type=int, default=1)
     parser.add_argument('--musco_ft_only', type=string_to_boolean, default="false")
 
-    # temp
-    parser.add_argument('--part', type=int, default=None)
-
+    parser.add_argument('--skt_lamb_fsp', type=float, default=0.5)
+    parser.add_argument('--skt_lamb_cos', type=float, default=0.5)
+    parser.add_argument('--skt_print_freq', type=int, default=200)
+    parser.add_argument('--skt_save_freq', type=int, default=0)
 
     config = parser.parse_args()
 
@@ -245,75 +247,10 @@ if __name__ == '__main__':
         args['model_save_path'] = os.path.join(args['model_save_path'], args['group_save_path'])
         args['model_test_path'] = os.path.join(args['model_test_path'], args['group_save_path'])
 
-    if args['musco_ft_only']:
-        version = str(datetime.now()).replace(':', '_')
-
-        args['pretrained_model'] = os.path.join('weights', args['pretrained_model'])
-        path = args['pretrained_model']
-        path = os.path.join(path[:path.rfind('/')], 'finetuning {}'.format(version))
-
-        output_txt = os.path.join(path, '{}.txt'.format(version))
-        compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], version))
-
-    elif args['use_compress']:
-        args['best_models'] = {
-            'mall':
-                {
-                    'MCNN': {
-                        'path': 'weights/MCNN mall 2022-01-04 13_58_47.825457_train/143',
-                        'mae': 2.158661,
-                        'mse': 2.794077,
-                        'lr': 1e-5
-                    },
-                    'CSRNet': {
-                        'path': 'weights/CSRNet mall 2022-01-06 01_32_54.581475_train/216',
-                        'mae': 1.961246,
-                        'mse': 2.493674,
-                        'lr': 1e-7
-                    },
-                    'MARUNet': {
-                        'path': 'weights/MARUNet mall 2022-01-20 09_54_55.689530_train/96',
-                        'mae': 1.810468,
-                        'mse': 2.3191,
-                        'lr': 2e-5
-                    },
-                    'CSRNetSKT': {
-                        'path': 'weights/SKT/final_CSRNet_mall',
-                    },
-                    'MARUNetSKT': {
-                        'path': 'weights/SKT/final_MARUNet_mall'
-                    }
-                },
-
-                'micc':
-                {
-                    'MCNN': {
-                        'path': 'weights/MCNN micc all 2022-01-03 00_42_16.699980_train/92',
-                        'mae': 0.234364,
-                        'mse': 0.327158,
-                        'lr': 1e-5
-                    },
-                    'CSRNet': {
-                        'path': 'weights/CSRNet micc all 2022-01-03 14_26_12.723386_train/157',
-                        'mae': 0.272343,
-                        'mse': 0.376899,
-                        'lr': 1e-7
-                    },
-                    'MARUNet': {
-                        'path': 'weights/MARUNet micc all 2022-01-23 14_30_20.141901_train/107',
-                        'mae': 0.128311,
-                        'mse': 0.214863,
-                        'lr': 2e-5
-                    },
-                    'CSRNetSKT': {
-                        'path': 'weights/SKT/final_CSRNet_micc',
-                    },
-                    'MARUNetSKT': {
-                        'path': 'weights/SKT/epoch666_best_mae.pth.tar'
-                    }
-                }
-            }
-
+    if args['use_compress']:
+        import json
+        f = open(args['weights_json_path'])
+        args['best_models'] = json.load(f)
         args['pretrained_model'] = args['best_models'][args['dataset']][args['model']]['path']
         if 'SKT' in args['pretrained_model']:
             model = args['pretrained_model']
