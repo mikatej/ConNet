@@ -95,8 +95,8 @@ class Compressor():
         if self.curr_iter >= self.niters:
             self.done = True
         
-        if end > len(self.lnames):
-            lnames += self.lnames[0 : end - len(self.lnames)]
+        # if end > len(self.lnames):
+        #     lnames += self.lnames[0 : end - len(self.lnames)]
             
         
         for i, lname in enumerate(lnames):

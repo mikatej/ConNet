@@ -15,7 +15,7 @@ class CrowdCounter(nn.Module):
     
     def forward(self,  im_data, gt_data=None):        
         im_data = im_data.cpu().detach().numpy()
-        im_data = network.np_to_variable(im_data, is_cuda=True, is_training=self.training)                
+        im_data = network.np_to_variable(im_data, is_cuda=True, is_training=self.training)
         density_map = self.DME(im_data)
         
         if self.training:

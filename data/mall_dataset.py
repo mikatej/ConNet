@@ -18,7 +18,9 @@ class MallDataset(TensorDataset):
                  new_size,
                  density_sigma,
                  image_transform=None,
-                 targets_resize=1):
+                 targets_resize=1,
+                 fail_cases=False,
+                 part=None):
         """Initializes the dataset
 
         Arguments:
@@ -38,6 +40,18 @@ class MallDataset(TensorDataset):
         self.ids = []
         self.targets = []
 
+        if fail_cases == True:
+            self.image_path = osp.join(self.data_path, 'test', '%s')
+            self.list_path = osp.join(self.data_path, 'maru_mall_fail.txt')
+
+            image_list = open(self.list_path, 'r').read()
+            self.ids = image_list.split('\n')[829+84:]
+            self.image_ids = self.ids
+            self.targets = [i.replace('jpg', 'h5') for i in self.ids]
+            self.target_path = osp.join(self.data_path, density_sigma, '%s')
+
+            return
+
         if self.mode == 'train':
             self.image_path = osp.join(self.data_path, 'train', '%s')
         elif self.mode == 'val':
@@ -45,10 +59,20 @@ class MallDataset(TensorDataset):
         elif self.mode == 'test':
             self.image_path = osp.join(self.data_path, 'test', '%s')
 
+        # self.ids = ['seq_001406.jpg', 'seq_001643.jpg', 'seq_000916.jpg']
+        self.ids = ['seq_001406.jpg', 'seq_001838.jpg', 'seq_000916.jpg', 'seq_000954.jpg', 'seq_001657.jpg']
+        self.image_ids = self.ids
+        self.targets = [i.replace('jpg', 'h5') for i in self.ids]
+        self.target_path = osp.join(self.data_path, density_sigma, '%s')
+        return
+
         image_path = self.image_path % '*.jpg'
         images = glob.glob(image_path)
 
         self.ids = [img[img.rfind('\\') + 1:] for img in images]
+
+        if part != None:
+            self.ids = self.ids[(part-1)*400 : (part)*400]
         self.image_ids = self.ids
         self.targets = [i.replace('jpg', 'h5') for i in self.ids]
         self.target_path = osp.join(self.data_path, density_sigma, '%s')
@@ -98,6 +122,8 @@ class MallDataset(TensorDataset):
         #    image, target = self.image_transform(image, target)
         #    image = image[:, :, (2, 1, 0)]
 
+        if self.image_transform != None:
+            image, target = self.image_transform(image, target)
         ht = image.shape[0]
         wd = image.shape[1]
         ht_1 = int((ht/4)*4)
@@ -135,8 +161,8 @@ class MallDataset(TensorDataset):
             index {int} -- index of the item to be pulled from the list of ids
 
         Returns:
-        	list -- list of x- and y-coordinates of the people in an image from
-        	the dataset
+            list -- list of x- and y-coordinates of the people in an image from
+            the dataset
         """
 
         target = self.targets[index]

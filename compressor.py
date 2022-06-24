@@ -111,23 +111,38 @@ class Compressor(object):
         write_print(self.output_txt,
                     'The number of parameters: {}'.format(num_params))
 
+    # def load_pretrained_model(self):
+        """
+        loads a pre-trained model from a .pth file
+        """
+
+        # if "MUSCO test" in self.pretrained_model:
+        #     checkpoint = torch.load(os.path.join(
+        #         '{}.pth.tar'.format(self.pretrained_model)))
+        #     self.model.load_state_dict(checkpoint['musco_best_state_dict'])
+
+        #     self.optimizer, self.criterion = self.build_optimizer_loss(self.model)
+        #     self.optimizer.load_state_dict(checkpoint['musco_best_optim'])
+
+        #     return
+
+        # self.model.load_state_dict(torch.load(os.path.join(
+        #     '{}.pth'.format(self.pretrained_model))))
+        # write_print(self.output_txt,
+        #             'loaded trained model {}'.format(self.pretrained_model))
     def load_pretrained_model(self):
         """
         loads a pre-trained model from a .pth file
         """
 
-        if "MUSCO test" in self.pretrained_model:
-            checkpoint = torch.load(os.path.join(
-                '{}.pth.tar'.format(self.pretrained_model)))
-            self.model.load_state_dict(checkpoint['musco_best_state_dict'])
+        if ".pth.tar" not in self.pretrained_model:
+            self.model.load_state_dict(torch.load(os.path.join(
+                '{}.pth'.format(self.pretrained_model))))
 
-            self.optimizer, self.criterion = self.build_optimizer_loss(self.model)
-            self.optimizer.load_state_dict(checkpoint['musco_best_optim'])
+        else:
+            weights = torch.load('{}'.format(self.pretrained_model))
+            self.model.load_state_dict(weights['state_dict'])
 
-            return
-
-        self.model.load_state_dict(torch.load(os.path.join(
-            '{}.pth'.format(self.pretrained_model))))
         write_print(self.output_txt,
                     'loaded trained model {}'.format(self.pretrained_model))
 
@@ -203,6 +218,8 @@ class Compressor(object):
             lnames_compress_me = lnames_to_compress
         # if self.model_name == 'CSRNet':
         #     lnames_compress_me = lnames_compress_me[:-1]
+
+        lnames_compress_me = lnames_to_compress[:13]
         noncompressing_lnames = {key: None for key in model_stats.flops.keys() if key not in lnames_compress_me}
         # noncompressing_lnames = {key: None for key in list(model_stats.flops.keys())[:-1]}
 
@@ -253,8 +270,8 @@ class Compressor(object):
             #     write_print('failed_layers.txt', "FAILED {}".format(lnames_compress_me[self.compressor_step-1]))
             #     write_print('failed_layers.txt', '\t {}'.format(e))
 
-        mae, mse, fps = self.eval(compressor.compressed_model.to(device), self.data_loaders['val'])
-        write_print(self.output_txt,  "MAE: {:.4f},  MSE: {:.4f},  FPS: {:.4f}".format(mae, mse, fps))
+        # mae, mse, fps = self.eval(compressor.compressed_model.to(device), self.data_loaders['val'])
+        # write_print(self.output_txt,  "MAE: {:.4f},  MSE: {:.4f},  FPS: {:.4f}".format(mae, mse, fps))
 
         stats_compressed = FlopCo(compressor.compressed_model.to(device), device = device)
         write_print(self.output_txt, str(1/(model_stats.total_flops / stats_compressed.total_flops)))
@@ -524,9 +541,9 @@ class Compressor(object):
         mse = 0
 
         if self.dataset == 'mall':
-            save_freq = 30
+            save_freq = 100
         else:
-            save_freq = 10
+            save_freq = 30
 
         if not self.save_output_plots:
             save_freq = int(len(data_loader) / 3)

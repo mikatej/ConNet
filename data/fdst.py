@@ -10,16 +10,16 @@ import h5py
 
 from collections import Counter
 
-class MICC(Dataset):
+class FDST(Dataset):
 
     def __init__(self,
                  data_path,
-                 dataset_subcategory,
                  mode,
                  new_size,
                  density_sigma,
                  image_transform=None,
-                 targets_resize=1):
+                 targets_resize=1,
+                 outdoor=False):
         """Initializes the dataset
 
         Arguments:
@@ -34,7 +34,6 @@ class MICC(Dataset):
         self.mode = mode
         self.new_size = new_size
         self.image_transform = image_transform
-        self.dataset_subcategory = dataset_subcategory
         self.targets_resize = targets_resize
 
         self.ids = []
@@ -44,47 +43,26 @@ class MICC(Dataset):
         file_path = osp.join(self.data_path, '%s')
 
         if self.mode == 'train':
-            list_path = osp.join(file_path, "%s_train.txt")
-        elif self.mode == 'val':
-            list_path = osp.join(file_path, "%s_validation.txt")
-        elif self.mode == 'test':
-            list_path = osp.join(file_path, "%s_testing.txt")
+            file_path = osp.join(data_path, "train")
+        elif self.mode in ['val', 'test']:
+            self.mode = 'test'
+            file_path = osp.join(data_path, "test")
 
+        if outdoor:
+            images = glob.glob(osp.join(file_path, "outdoor_*", "*.jpg"))
+        else:
+            images = glob.glob(osp.join(file_path, "[0-9]*", "*.jpg"))
 
-        self.image_path = osp.join(file_path, 'RGB', '%s')
-        self.target_path = osp.join(file_path, density_sigma, '%s')
-        self.ids = [("groups", "759.png"), ("flow", "1063.png"), ("groups", "169.png"), ("flow", "306.png"), ("queue", "45.png")]
-        # self.ids = [("flow", "160.png"), ("flow", "306.png")]
-        self.image_ids.extend(['{}_{}'.format(i[0], i[1]) for i in self.ids])
-        self.targets = [(i[0], i[1].replace('.png', '.h5')) for i in self.ids]
-        return
+        self.image_path = osp.join(file_path, "%s", "%s")
+        self.target_path = osp.join(data_path, density_sigma, "%s")
 
-        categories = ['flow', 'groups', 'queue']
-        if self.dataset_subcategory == 'all':
-            # categories = [self.dataset_subcategory]
+        for i in images:
+            name = i[i.find(self.mode):].split('\\')
+            img_id = "{}_{}".format(name[-2], name[-1]).replace('outdoor_', '')
+            self.ids.append((name[-2], name[-1]))
+            self.image_ids.append(img_id)
+            self.targets.append(img_id.replace('.jpg', '.h5'))
 
-            self.image_path = osp.join(file_path, 'RGB', '%s')
-            self.target_path = osp.join(file_path, density_sigma, '%s')
-            for c in categories:
-                list_file = list_path % (c, c)
-
-                image_list = open(list_file, 'r').read()
-                ids = image_list.split('\n')
-                self.ids.extend([(c, image_id) for image_id in ids])
-                self.image_ids.extend(['{}_{}'.format(c, image_id) for image_id in ids])
-                self.targets.extend([(c, image_id.replace('.png', '.h5')) for image_id in ids])
-
-        elif self.dataset_subcategory in categories:
-            list_file = list_path % (self.dataset_subcategory, self.dataset_subcategory)
-            image_list = open(list_file, 'r').read()
-
-            self.ids = image_list.split('\n')
-            self.image_ids = self.ids
-            self.targets = [i.replace('.png', '.h5') for i in self.ids]
-
-            file_path = file_path % self.dataset_subcategory
-            self.image_path = osp.join(file_path, 'RGB', '%s')
-            self.target_path = osp.join(file_path, density_sigma, '%s')
 
     def __len__(self):
         """Returns number of data in the dataset
@@ -106,6 +84,9 @@ class MICC(Dataset):
         """
         image, target, _, _ = self.pull_item(index)
 
+        if self.mode == 'pred':
+            return image,  None
+
         return image, target
 
     def pull_item(self, index):
@@ -124,18 +105,11 @@ class MICC(Dataset):
 
         image = cv2.imread(self.image_path % image_id)
         target = self.pull_target(index)
-        height, width, _ = image.shape
-
-        # print("\n\n\nIMAGE TRANSFORM: {}\n\n\n".format(self.image_transform))
-        # if self.image_transform is not None:
-        #     print("ENTERED: " + self.image_transform)
-        #     image, target = self.image_transform(image, target)
-        #     image = image[:, :, (2, 1, 0)]
-
 
         if self.image_transform != None:
             image, target = self.image_transform(image, target)
 
+        height, width, _ = image.shape
         ht = image.shape[0]
         wd = image.shape[1]
         ht_1 = int((ht/4)*4)

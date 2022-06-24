@@ -1,6 +1,6 @@
 import os.path as osp
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import TensorDataset
 import cv2
 import os 
 import glob
@@ -10,11 +10,10 @@ import h5py
 
 from collections import Counter
 
-class MICC(Dataset):
+class PETS(TensorDataset):
 
     def __init__(self,
                  data_path,
-                 dataset_subcategory,
                  mode,
                  new_size,
                  density_sigma,
@@ -34,57 +33,23 @@ class MICC(Dataset):
         self.mode = mode
         self.new_size = new_size
         self.image_transform = image_transform
-        self.dataset_subcategory = dataset_subcategory
         self.targets_resize = targets_resize
 
         self.ids = []
-        self.image_ids = []
         self.targets = []
 
-        file_path = osp.join(self.data_path, '%s')
+        self.image_path = osp.join(self.data_path, 'S1', 'L1', 'Time_13-57','View_001','%s')
 
-        if self.mode == 'train':
-            list_path = osp.join(file_path, "%s_train.txt")
-        elif self.mode == 'val':
-            list_path = osp.join(file_path, "%s_validation.txt")
-        elif self.mode == 'test':
-            list_path = osp.join(file_path, "%s_testing.txt")
+        image_path = self.image_path % '*.jpg'
+        images = glob.glob(image_path)
 
+        self.ids = [img[img.rfind('\\') + 1:] for img in images]
+        self.image_ids = self.ids
 
-        self.image_path = osp.join(file_path, 'RGB', '%s')
-        self.target_path = osp.join(file_path, density_sigma, '%s')
-        self.ids = [("groups", "759.png"), ("flow", "1063.png"), ("groups", "169.png"), ("flow", "306.png"), ("queue", "45.png")]
-        # self.ids = [("flow", "160.png"), ("flow", "306.png")]
-        self.image_ids.extend(['{}_{}'.format(i[0], i[1]) for i in self.ids])
-        self.targets = [(i[0], i[1].replace('.png', '.h5')) for i in self.ids]
-        return
+        # no targets
+        self.targets = [i.replace('jpg', 'h5') for i in self.ids]
+        self.target_path = osp.join(self.data_path, density_sigma, '%s')
 
-        categories = ['flow', 'groups', 'queue']
-        if self.dataset_subcategory == 'all':
-            # categories = [self.dataset_subcategory]
-
-            self.image_path = osp.join(file_path, 'RGB', '%s')
-            self.target_path = osp.join(file_path, density_sigma, '%s')
-            for c in categories:
-                list_file = list_path % (c, c)
-
-                image_list = open(list_file, 'r').read()
-                ids = image_list.split('\n')
-                self.ids.extend([(c, image_id) for image_id in ids])
-                self.image_ids.extend(['{}_{}'.format(c, image_id) for image_id in ids])
-                self.targets.extend([(c, image_id.replace('.png', '.h5')) for image_id in ids])
-
-        elif self.dataset_subcategory in categories:
-            list_file = list_path % (self.dataset_subcategory, self.dataset_subcategory)
-            image_list = open(list_file, 'r').read()
-
-            self.ids = image_list.split('\n')
-            self.image_ids = self.ids
-            self.targets = [i.replace('.png', '.h5') for i in self.ids]
-
-            file_path = file_path % self.dataset_subcategory
-            self.image_path = osp.join(file_path, 'RGB', '%s')
-            self.target_path = osp.join(file_path, density_sigma, '%s')
 
     def __len__(self):
         """Returns number of data in the dataset
@@ -106,7 +71,7 @@ class MICC(Dataset):
         """
         image, target, _, _ = self.pull_item(index)
 
-        return image, target
+        return image, None#, target
 
     def pull_item(self, index):
         """Returns an image, its corresponding class, height, and width from
@@ -123,48 +88,32 @@ class MICC(Dataset):
         image_id = self.ids[index]
 
         image = cv2.imread(self.image_path % image_id)
-        target = self.pull_target(index)
+        # target = self.pull_target(index)
+        target = np.zeros(image.shape, dtype=float)
         height, width, _ = image.shape
 
-        # print("\n\n\nIMAGE TRANSFORM: {}\n\n\n".format(self.image_transform))
-        # if self.image_transform is not None:
-        #     print("ENTERED: " + self.image_transform)
-        #     image, target = self.image_transform(image, target)
-        #     image = image[:, :, (2, 1, 0)]
-
+        # if self.mode == 'train':
+        #    image, target = self.image_transform(image, target)
+        #    image = image[:, :, (2, 1, 0)]
 
         if self.image_transform != None:
             image, target = self.image_transform(image, target)
-
         ht = image.shape[0]
         wd = image.shape[1]
         ht_1 = int((ht/4)*4)
         wd_1 = int((wd/4)*4)
 
         image = cv2.resize(image,(wd_1,ht_1))
-        # image = image.reshape((1,image.shape[0],image.shape[1]))
-
         # out_size = (target.shape[1] // self.targets_resize, target.shape[0] // self.targets_resize)
         # target = cv2.resize(target, out_size)
-        # target = target * ((wd * ht) / out_size[0] * out_size[1])
-
-        # target = cv2.resize(target,(wd_1,ht_1))
-        # target = target * ((wd*ht)/(wd_1*ht_1))
 
         wd_1 = int(wd_1/self.targets_resize)
         ht_1 = int(ht_1/self.targets_resize)
-        target = cv2.resize(target,(wd_1,ht_1))                
+        target = cv2.resize(target,(wd_1,ht_1))
         target = target * ((wd*ht)/(wd_1*ht_1))
-        # target = target.reshape((1, target.shape[0], target.shape[1]))
-
-
-        # print("actual count: {}".format(np.sum(target)))
-        # image = image.reshape((1, image.shape[0], image.shape[1]))
-        # target = target.reshape((1, target.shape[0], target.shape[1]))
 
         return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0), height, width
-        # return torch.from_numpy(image), torch.from_numpy(target), height, width
-
+        # return torch.from_numpy(image).permute(2, 0, 1), torch.unsqueeze(torch.from_numpy(target), 0).permute(2, 0, 1), height, width
 
     def pull_image(self, index):
         """Returns an image from the dataset represented as an ndarray
@@ -189,6 +138,7 @@ class MICC(Dataset):
             list -- list of x- and y-coordinates of the people in an image from
             the dataset
         """
+
         target = self.targets[index]
         target_path = self.target_path % target
 

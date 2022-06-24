@@ -18,16 +18,16 @@ class MARNet(nn.Module):
         self.objective = objective
         self.sf = save_feature
         self.front0 = make_layers([64, 64], in_channels=3, batch_norm=bn, NL=self.NL)
-        self.front1 = make_layers(['M', [(64,8), (8,8), (8,128)], [(128,8), (8,8), (8,128)]], in_channels=64, batch_norm=bn, NL=self.NL)
-        self.front2 = make_layers(['M', [(128,8), (8,10), (10,256)], [(256,10), (10,8), (8,256)], 256], in_channels=128, batch_norm=bn, NL=self.NL)
-        self.front3 = make_layers(['M', [(256,22), (22,16), (16,512)], [(512,17), (17,9), (9,512)], [(512,8), (8,8), (8,512)]], in_channels=256, batch_norm=bn, NL=self.NL)
-        self.front4 = make_layers(['M', [(512,8), (8,8), (8,512)], [(512,8), (8,8), (8,512)], [(512,8), (8,8), (8,512)]], in_channels=512, batch_norm=bn, NL=self.NL)
+        self.front1 = make_layers(['M', [(64,8), (8,8), (8,128)], [(128,8), (8,10), (10,128)]], in_channels=64, batch_norm=bn, NL=self.NL)
+        self.front2 = make_layers(['M', [(128,8), (8,14), (14,256)], [(256,13), (13,25), (25,256)], 256], in_channels=128, batch_norm=bn, NL=self.NL)
+        self.front3 = make_layers(['M', [(256,22), (22,16), (16,512)], [(512,23), (23,11), (11,512)], [(512,10), (10,10), (10,512)]], in_channels=256, batch_norm=bn, NL=self.NL)
+        self.front4 = make_layers(['M', [(512,8), (8,8), (8,512)], [(512,8), (8,10), (10,512)], [(512,9), (9,18), (18,512)]], in_channels=512, batch_norm=bn, NL=self.NL)
         
         self.brg = make_layers([512], in_channels=512, dilation=True, batch_norm=bn, NL=self.NL, se=se)
         
-        self.back4 = make_layers([[(1024,9), (9,8), (8,512)]], in_channels=1024, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
-        self.back3 = make_layers([[(1024,8), (8,9), (9,256)],], in_channels=1024, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
-        self.back2 = make_layers([[(512,8), (8,8), (8,128)]], in_channels=512, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
+        self.back4 = make_layers([[(1024,11), (11,17), (17,512)]], in_channels=1024, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
+        self.back3 = make_layers([[(1024,11), (11,13), (13,256)],], in_channels=1024, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
+        self.back2 = make_layers([[(512,12), (12,8), (8,128)]], in_channels=512, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
         self.back1 = make_layers([[(256,8), (8,8), (8,64)]], in_channels=256, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
         self.back0 = make_layers([64], in_channels=128, dilation=True, batch_norm=bn, NL=self.NL, se=se)
         

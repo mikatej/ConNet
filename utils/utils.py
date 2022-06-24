@@ -40,35 +40,47 @@ def write_to_file(path, text):
     file.write(text + '\n')
     file.close()
 
-def save_plots(file_path, output, labels, ids):
-    if not os.path.exists(file_path):
-        os.makedirs(file_path)
+def save_plots(file_path, output, labels, ids, pred=False):
+    dm_file_path = os.path.join(file_path, 'density maps')
+
+    if not os.path.exists(dm_file_path):
+        # os.makedirs(file_path)
+        os.makedirs(dm_file_path)
 
     file_path = os.path.join(file_path , '%s')
+    dm_file_path = os.path.join(dm_file_path, '%s')
+
 
     # for i, o in enumerate(output):
-    for i in range(0, len(output), 5):
+    for i in range(0, len(ids), 5):
         # file_name = file_path % (str(time.time()) + '.png')
-        file_name = file_path % (ids[i])
+        file_name = dm_file_path % (ids[i])
+        o = output[i].cpu().detach().numpy()
+        et_count = np.sum(o)
+        o = o.squeeze()
+        plt.imsave(file_name, o)
+
+        if pred:
+            return
+
+        file_name2 = file_path % (ids[i])
+        file_name3 = dm_file_path % ("[gt] {}".format(ids[i]))
 
         l = labels[i].cpu().detach().numpy()
-        o = output[i].cpu().detach().numpy()
-
-        gt_count = np.sum(l)    
-        et_count = np.sum(o)
-
+        gt_count = np.sum(l)
         l = l.squeeze()
-        o = o.squeeze()
+        plt.imsave(file_name3, l)
 
         plt.subplot(1, 2, 1)
         plt.imshow(l)
-        text = plt.text(0, 0, 'actual: {} \npredicted: {}\n\n'.format(str(gt_count), str(et_count)))
+        text = plt.text(0, 0, 'actual: {} ({})\npredicted: {} ({})\n\n'.format(round(gt_count), str(gt_count), round(et_count), str(et_count)))
         
         plt.subplot(1, 2, 2)
         plt.imshow(o)
-        plt.savefig(file_name)
+        plt.savefig(file_name2)
 
         text.set_visible(False)
+        # plt.imsave(file_name3, l)
 
         # np.savetxt(file_path % (ids[i].replace('.jpg', '.txt')), o)
 

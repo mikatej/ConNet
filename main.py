@@ -103,13 +103,15 @@ if __name__ == '__main__':
     torch.set_printoptions(threshold=np.nan)
     parser = argparse.ArgumentParser()
 
+    musco_model_names = ['musco_{}_micc_{}x_iter'.format(m, int(i/2)) for m in ['MARUNet', 'CSRNet'] for i in list(range(2,12,2))]
+
     # dataset info
     parser.add_argument('--input_channels', type=int, default=3,
                         help='Number of input channels')
     parser.add_argument('--class_count', type=int, default=102,
                         help='Number of classes in dataset')
     parser.add_argument('--dataset', type=str, default='mall',
-                        choices=['micc', 'mall'],
+                        choices=['micc', 'mall', 'pets', 'fdst'],
                         help='Dataset to use')
     parser.add_argument('--dataset_subcategory', type=str, default='all',
                         choices=['flow', 'groups', 'queue', 'all'],
@@ -124,8 +126,14 @@ if __name__ == '__main__':
                         help='Mean values of the dataset')
     parser.add_argument('--augment', type=string_to_boolean, default=True,
                         help='Toggles data augmentation')
-    parser.add_argument('--base_transform', type=string_to_boolean, default=False,
-                        help='Toggles base transformation (mean subtraction)')
+    # parser.add_argument('--base_transform', type=string_to_boolean, default=False,
+    #                     help='Toggles base transformation (mean subtraction)')
+
+    # FOR EXPERIMENTS
+    parser.add_argument('--augment_exp', type=string_to_boolean, default=False)
+    parser.add_argument('--brightness_change', type=float, default=0)
+    parser.add_argument('--resolution_scale', type=float, default=1)
+    parser.add_argument('--outdoor', type=string_to_boolean, default=False)
 
     # training settings
     parser.add_argument('--lr', type=float, default=1e-4,
@@ -141,13 +149,13 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1,
                         help='Batch size')
     parser.add_argument('--model', type=str, default='MARUNetMUSCO_mall',
-                        choices=['CSRNet', 'MCNN', 'NLT', 'MARUNet', 'CSRNetSKT', 'MARUNetSKT', 'MARUNetMUSCO_mall'],
+                        choices=['ConNet_mall', 'ConNet_micc', 'CSRNet', 'MCNN', 'MARUNet', 'CSRNetSKT', 'MARUNetSKT', 'MARUNetMUSCO_mall', 'MARUNetMUSCO_micc', 'CSRNetMUSCO_mall', 'CSRNetMUSCO_micc'] + musco_model_names,
                         help='CNN model to use')
     parser.add_argument('--backbone_model', type=str, default='vgg16',
                         choices=['vgg16', 'ResNet50'],
                         help='If NLT, which backbone model to use')
     parser.add_argument('--pretrained_model', type=str,
-                        default='MUSCO test/MARUNet mall 2022-01-20 09_54_55.689530_train/2022-03-14 09_17_56.262160/compression step 6',
+                        default='MUSCO test/SKT/epoch666_best_mae.pth.tar/2022-06-08 21_15_16.592935/compression step 15.pth.tar',
                         help='Pre-trained model')
     parser.add_argument('--save_output_plots', type=string_to_boolean, default=True)
     parser.add_argument('--init_weights', type=string_to_boolean, default=True,
@@ -186,6 +194,16 @@ if __name__ == '__main__':
                         default='../../CCCMIS/Datasets/MICC/',
                         help='MICC dataset path')
 
+    # micc dataset
+    parser.add_argument('--pets_data_path', type=str,
+                        default='../../CCCMIS/Datasets/Crowd_PETS09/',
+                        help='PETS2009 dataset path')
+
+    # micc dataset
+    parser.add_argument('--fdst_data_path', type=str,
+                        default='../../CCCMIS/Datasets/FDST/',
+                        help='FDST dataset path')
+
     # path
     parser.add_argument('--model_save_path', type=str, default='./weights',
                         help='Path for saving weights')
@@ -198,13 +216,15 @@ if __name__ == '__main__':
     parser.add_argument('--model_save_step', type=int, default=1)
 
     # musco
-    parser.add_argument('--musco_filter_layers', type=string_to_boolean, default='true')
+    parser.add_argument('--musco_filter_layers', type=string_to_boolean, default='false')
     parser.add_argument('--musco_ft_every', type=float, default=10)
     parser.add_argument('--musco_iters', type=int, default=5)
     parser.add_argument('--musco_ft_epochs', type=int, default=10)
     parser.add_argument('--musco_ft_checkpoint', type=int, default=1)
     parser.add_argument('--musco_ft_only', type=string_to_boolean, default="false")
 
+    # temp
+    parser.add_argument('--part', type=int, default=None)
 
 
     config = parser.parse_args()
@@ -289,7 +309,7 @@ if __name__ == '__main__':
                         'path': 'weights/SKT/final_CSRNet_micc',
                     },
                     'MARUNetSKT': {
-                        'path': 'weights/SKT/final_MARUNet_micc_lower_lr'
+                        'path': 'weights/SKT/epoch666_best_mae.pth.tar'
                     }
                 }
             }
@@ -314,7 +334,9 @@ if __name__ == '__main__':
             dataset = '{} {}'.format(dataset, args['dataset_subcategory'])
 
         version = str(datetime.now()).replace(':', '_')
-        version = '{} {} {}_train'.format(args['model'], dataset, version)
+        version = '{} {} bright_{} res_{} {}_train'.format(args['model'], dataset, args['brightness_change'], args['resolution_scale'], version)
+
+        # version = '{} {} {}_train'.format(args['model'], dataset, version)
         path = args['model_save_path']
         path = os.path.join(path, version)
         output_txt = os.path.join(path, '{}.txt'.format(version))
@@ -331,6 +353,7 @@ if __name__ == '__main__':
     elif args['mode'] == 'test':
         model = args['pretrained_model'].split('/')
         version = '{}_test_{}'.format(model[0], model[1])
+        args['model_test_path'] = args['model_test_path'] + "/[for density maps]"
         path = args['model_test_path']
         path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))

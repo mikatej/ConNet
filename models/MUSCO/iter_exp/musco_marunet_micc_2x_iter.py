@@ -18,17 +18,17 @@ class MARNet(nn.Module):
         self.objective = objective
         self.sf = save_feature
         self.front0 = make_layers([64, 64], in_channels=3, batch_norm=bn, NL=self.NL)
-        self.front1 = make_layers(['M', [(64,8), (8,8), (8,128)], [(128,8), (8,8), (8,128)]], in_channels=64, batch_norm=bn, NL=self.NL)
-        self.front2 = make_layers(['M', [(128,8), (8,10), (10,256)], [(256,10), (10,8), (8,256)], 256], in_channels=128, batch_norm=bn, NL=self.NL)
-        self.front3 = make_layers(['M', [(256,22), (22,16), (16,512)], [(512,17), (17,9), (9,512)], [(512,8), (8,8), (8,512)]], in_channels=256, batch_norm=bn, NL=self.NL)
-        self.front4 = make_layers(['M', [(512,8), (8,8), (8,512)], [(512,8), (8,8), (8,512)], [(512,8), (8,8), (8,512)]], in_channels=512, batch_norm=bn, NL=self.NL)
+        self.front1 = make_layers(['M', [(64,15), (15,17), (17,128)], [(128,16), (16,19), (19,128)]], in_channels=64, batch_norm=bn, NL=self.NL)
+        self.front2 = make_layers(['M', [(128,18), (18,30), (30,256)], [(256,38), (38,53), (53,256)], 256], in_channels=128, batch_norm=bn, NL=self.NL)
+        self.front3 = make_layers(['M', [(256,99), (99,76), (76,512)], [(512,59), (59,44), (44,512)], [(512,34), (34,34), (34,512)]], in_channels=256, batch_norm=bn, NL=self.NL)
+        self.front4 = make_layers(['M', [(512,29), (29,33), (33,512)], [(512,33), (33,36), (36,512)], [(512,39), (39,45), (45,512)]], in_channels=512, batch_norm=bn, NL=self.NL)
         
         self.brg = make_layers([512], in_channels=512, dilation=True, batch_norm=bn, NL=self.NL, se=se)
         
-        self.back4 = make_layers([[(1024,9), (9,8), (8,512)]], in_channels=1024, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
-        self.back3 = make_layers([[(1024,8), (8,9), (9,256)],], in_channels=1024, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
-        self.back2 = make_layers([[(512,8), (8,8), (8,128)]], in_channels=512, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
-        self.back1 = make_layers([[(256,8), (8,8), (8,64)]], in_channels=256, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
+        self.back4 = make_layers([[(1024,59), (59,43), (43,512)]], in_channels=1024, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
+        self.back3 = make_layers([[(1024,61), (61,27), (27,256)],], in_channels=1024, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
+        self.back2 = make_layers([[(512,35), (35,12), (12,128)]], in_channels=512, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
+        self.back1 = make_layers([[(256,18), (18,8), (8,64)]], in_channels=256, dilation=True, batch_norm=bn, NL=self.NL, se=se, padding=2)
         self.back0 = make_layers([64], in_channels=128, dilation=True, batch_norm=bn, NL=self.NL, se=se)
         
         # objective is density map(dmp) and (binary) attention map(amp)

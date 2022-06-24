@@ -1,6 +1,7 @@
 import os
 import torch
 import time
+import copy
 import datetime
 import torch.nn as nn
 import torch.optim as optim
@@ -75,14 +76,14 @@ class Solver(object):
         # self.optimizer = optim.Adam(params=self.model.parameters(),
         #                             lr=self.lr)
 
-        if self.model_name == 'MARUNet':
+        if 'MARUNet' in self.model_name or 'ConNet' in self.model_name:
             self.optimizer = optim.Adam(self.model.parameters(), lr = self.lr, weight_decay = self.weight_decay)
         else:
             self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()),
                                     lr=self.lr)
 
         # print network
-        self.print_network(self.model, 'VGGNet')
+        # self.print_network(self.model, 'VGGNet')
 
         # use gpu if enabled
         if torch.cuda.is_available() and self.use_gpu:
@@ -105,8 +106,17 @@ class Solver(object):
         """
         loads a pre-trained model from a .pth file
         """
-        self.model.load_state_dict(torch.load(os.path.join(
-            self.model_save_path, '{}.pth'.format(self.pretrained_model))), strict=False)
+
+        if ".pth.tar" not in self.pretrained_model:
+            self.model.load_state_dict(torch.load(os.path.join(
+                self.model_save_path, '{}.pth'.format(self.pretrained_model))), strict=False)
+
+        else:
+            weights = torch.load(os.path.join(
+                self.model_save_path, '{}'.format(self.pretrained_model)))
+            self.model.load_state_dict(weights['state_dict'])
+            self.optimizer.load_state_dict(weights['optimizer'])
+
         write_print(self.output_txt,
                     'loaded trained model {}'.format(self.pretrained_model))
 
@@ -143,10 +153,11 @@ class Solver(object):
         """
         path = os.path.join(
             self.model_save_path,
-            '{}/{}.pth'.format(self.version, e + 1)
+            '{}/{}.pth.tar'.format(self.version, e + 1)
         )
 
-        torch.save(self.model.state_dict(), path)
+        torch.save({'state_dict': copy.deepcopy(self.model.state_dict()),
+            'optimizer': copy.deepcopy(self.optimizer.state_dict())}, path)
 
     def model_step(self, images, labels, epoch):
         """
@@ -168,7 +179,9 @@ class Solver(object):
             images = images.float()
             output = self.model(images)
 
-        if self.model_name == 'MARUNet':
+        if 'MARUNet' in self.model_name or 'ConNet' in self.model_name:
+            if 'ConNet' in self.model_name:
+                _, output = output
             output, d0, d1, d2, d3, d4, amp41, amp31, amp21, amp11, amp01 = output
             amp_gt = [get_amp_gt_by_value(l) for l in labels]
             amp_gt = torch.stack(amp_gt).cuda()
@@ -182,7 +195,7 @@ class Solver(object):
         if self.model_name == 'MCNN':
             self.model.loss.backward()
             loss = self.model.loss.item()
-        elif self.model_name == 'MARUNet':
+        elif 'MARUNet' in self.model_name or 'ConNet' in self.model_name:
             loss = 0
             outputs = [output, d0, d1, d2, d3, d4]
 
@@ -231,7 +244,10 @@ class Solver(object):
 
         # start with a trained model if exists
         if self.pretrained_model:
-            start = int(self.pretrained_model.split('/')[-1])
+            try:
+                start = int(self.pretrained_model.split('/')[-1].replace('.pth.tar', ''))
+            except:
+                start = 0
 
             for x in self.learning_sched:
                 if start >= x:
@@ -240,7 +256,7 @@ class Solver(object):
                 else:
                     break
 
-            print("LEARNING RATE: ", self.lr, sched)
+            print("LEARNING RATE: ", self.lr, sched, " | EPOCH:", start)
         else:
             start = 0
 
@@ -308,9 +324,11 @@ class Solver(object):
         mse = 0
 
         if self.dataset == 'mall':
-            save_freq = 30
+            save_freq = 100
+        elif self.dataset == 'micc':
+            save_freq = 50
         else:
-            save_freq = 10
+            save_freq = 50
 
         with torch.no_grad():
             for i, (images, labels) in enumerate(tqdm(data_loader)):
@@ -318,15 +336,15 @@ class Solver(object):
 
                 labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
                 labels = torch.stack(labels)
+                images = images.float()
 
                 timer.tic()
-                images = images.float()
                 output = self.model(images)
                 elapsed += timer.toc(average=False)
 
                 ids = self.dataset_ids[i*self.batch_size: i*self.batch_size + self.batch_size]
 
-                if self.model_name == 'MARUNet':
+                if 'MARUNet' in self.model_name or 'ConNet' in self.model_name:
                     output = output[0] / 50
 
                 model = self.pretrained_model.split('/')
@@ -353,7 +371,6 @@ class Solver(object):
                 mae += abs(output.sum() - labels.sum()).item()
                 mse += ((labels.sum() - output.sum())*(labels.sum() - output.sum())).item()
 
-
         y_true = y_true.cpu()
         y_pred = y_pred.cpu()
 
@@ -369,38 +386,38 @@ class Solver(object):
         self.model.eval()
         data_loader = self.data_loader
 
-        y_true = to_var(torch.LongTensor([]), self.use_gpu)
-        y_pred = to_var(torch.LongTensor([]), self.use_gpu)
-        out = to_var(torch.FloatTensor([]), self.use_gpu)
-        sm = nn.Softmax()
         timer = Timer()
         elapsed = 0
 
-        with torch.no_grad():
-            for images, labels in tqdm(data_loader):
+        mae = 0
+        mse = 0
 
+        if self.dataset == 'mall':
+            save_freq = 100
+        elif self.dataset == 'micc':
+            save_freq = 50
+        else:
+            save_freq = 1
+
+        with torch.no_grad():
+            for i, (images, _) in enumerate(tqdm(data_loader)):
                 images = to_var(images, self.use_gpu)
-                labels = to_var(torch.LongTensor(labels), self.use_gpu)
+                images = images.float()
 
                 timer.tic()
                 output = self.model(images)
                 elapsed += timer.toc(average=False)
 
-                _, top_1_output = torch.max(output.data, dim=1)
-                top_1, _ = torch.max(sm(output.data), dim=1)
-                out = torch.cat((out, top_1))
-                y_true = torch.cat((y_true, labels))
-                y_pred = torch.cat((y_pred, top_1_output))
+                ids = self.dataset_ids[i*self.batch_size: i*self.batch_size + self.batch_size]
 
-        out = out.cpu().numpy()
-        y_true = y_true.cpu().numpy()
-        y_pred = y_pred.cpu().numpy()
+                if 'MARUNet' in self.model_name or 'ConNet' in self.model_name:
+                    output = output[0] / 50
 
-        print(out.shape, y_true.shape, y_pred.shape)
+                model = self.pretrained_model.split('/')
+                file_path = os.path.join(self.model_test_path, model[0], '{} {} epoch {}'.format(self.model_name, self.dataset_info, model[1]))
 
-        for i, _ in enumerate(out):
-            strOut = str(out[i]) + ',' + str(y_pred[i]) + ',' + str(y_true[i])
-            write_print(self.output_txt, strOut)
+                if self.save_output_plots and i % save_freq == 0:
+                    save_plots(file_path, output, [], ids, pred=True)
 
     def test(self):
         """
@@ -412,7 +429,7 @@ class Solver(object):
         log = log.format(out[0], out[1], out[2])
         write_print(self.output_txt, log)
 
-        epoch_num = self.output_txt[self.output_txt.rfind('_')+1:-4]
+        epoch_num = self.output_txt[self.output_txt.rfind('_')+1:-4].replace('.pth.tar', '')
         write_to_file(self.compile_txt, 'epoch {} | {}'.format(epoch_num, log))
 
         if (int(epoch_num) % 5 == 0):

@@ -5,19 +5,19 @@ import torch.nn as nn
 import torch
 import numpy as np
 import torch.nn.functional as F
-from models.MARUNet.utils import *
+from models.ConNet.musco_utils import *
 from torchvision.models import vgg16
 from torch.hub import load_state_dict_from_url
 
-channel_nums = [[32, 64, 128, 256, 512],  # half
-                [21, 43, 86, 170, 340],  # third
-                [16, 32, 64, 128, 256],  # quarter
-                [13, 26, 51, 102, 205],  # fifth
-                ]
+channel_nums = [[32, 64, 128, 256, 512],                  
+                [21, 43, 86, 170, 340],                  
+                [16, 32, 64, 128, 256],                  
+                [13, 26, 51, 102, 205],                  
+               ]
 
-class MARNet(nn.Module):
-    def __init__(self, load_model='', downsample=1, bn=False, NL='relu', objective='dmp', sp=False, se=False, block='', save_feature=False, ratio=4, transform=True):
-        super(MARNet, self).__init__()
+class ConNet(nn.Module):
+    def __init__(self, load_model='', downsample=1, bn=True, NL='relu', objective='dmp+amp', sp=False, se=False, block='', save_feature=False, ratio=4, transform=True):
+        super(ConNet, self).__init__()
 
         channel = channel_nums[ratio-2]
         self.transform = transform
@@ -28,59 +28,50 @@ class MARNet(nn.Module):
         self.objective = objective
         self.sf = save_feature
 
-        self.front0_0 = make_layers([channel[0]], in_channels=3, batch_norm=bn, NL=self.NL)
+        self.front0_0 = make_layers([[(3,3), (3,8), (8,16)]], in_channels=3, batch_norm=bn, NL=self.NL)
         if self.transform:
             self.front0_transform = feature_transform(channel[0], 64)
-        self.front0_1 = make_layers([channel[0]], in_channels=channel[0], batch_norm=bn, NL=self.NL)
-        # self.front0 = make_layers([channel[0]], in_channels=3, batch_norm=bn, NL=self.NL)
+        self.front0_1 = make_layers([[(16,8), (8,8), (8,16)]], in_channels=channel[0], batch_norm=bn, NL=self.NL)
 
         self.pool1 = pool_layers()
         if self.transform:
             self.front1_transform = feature_transform(channel[0], 64)
-        self.front1 =make_layers([channel[1], channel[1]], in_channels=channel[0], batch_norm=bn, NL=self.NL)
-        # self.front1 = make_layers(['M', channel[1], channel[1]], in_channels=channel[0], batch_norm=bn, NL=self.NL)
+        self.front1 =make_layers([[(16,8), (8,8), (8,32)], [(32,8), (8,8), (8,32)]], in_channels=channel[0], batch_norm=bn, NL=self.NL)
 
         self.pool2 = pool_layers()
         if self.transform:
             self.front2_transform = feature_transform(channel[1], 128)
-        self.front2 = make_layers([channel[2], channel[2], channel[2]], in_channels=channel[1], batch_norm=bn, NL=self.NL)
-        # self.front2 = make_layers(['M', channel[2], channel[2], channel[2]], in_channels=channel[1], batch_norm=bn, NL=self.NL)
+        self.front2 = make_layers([[(32,8),(8,8),(8,64)], [(64,8),(8,8),(8,64)], [(64,8),(8,20),(20,64)]], in_channels=channel[1], batch_norm=bn, NL=self.NL)
 
         self.pool3 = pool_layers()
         if self.transform:
             self.front3_transform = feature_transform(channel[2], 256)
-        self.front3 = make_layers([channel[3], channel[3], channel[3]], in_channels=channel[2], batch_norm=bn, NL=self.NL)
-        # self.front3 = make_layers(['M', channel[3], channel[3], channel[3]], in_channels=channel[2], batch_norm=bn, NL=self.NL)
+        self.front3 = make_layers([[(64,8), (8,35), (35,128)], [(128,40), (40,30), (30,128)], [(128,30), (30,36), (36,128)]], in_channels=channel[2], batch_norm=bn, NL=self.NL)
 
         self.pool4 = pool_layers()
         if self.transform:
             self.front4_transform = feature_transform(channel[3], 512)
-        self.front4 = make_layers([channel[3], channel[3], channel[3]], in_channels=channel[3], batch_norm=bn, NL=self.NL)
-        # self.front4 = make_layers(['M', channel[3], channel[3], channel[3]], in_channels=channel[3], batch_norm=bn, NL=self.NL)
-        
+        self.front4 = make_layers([[(128,13), (13,8), (8,128)], [(128,29), (29,22), (22,128)], [(128,16), (16,10), (10,128)]], in_channels=channel[3], batch_norm=bn, NL=self.NL)
+
         self.brg_0 = make_layers([channel[3]], in_channels=channel[3], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         if self.transform:
             self.brg_transform = feature_transform(channel[3], 512)
-        # self.brg = make_layers([channel[3]], in_channels=channel[3], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        
+
         self.back4 = make_layers([channel[3]], in_channels=channel[4], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-       
+
         self.back3 = make_layers([channel[2]], in_channels=channel[4], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         if self.transform:
             self.back3_transform = feature_transform(channel[2], 256)
-        # self.back3 = make_layers([channel[2],], in_channels=channel[4], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        
+
         self.back2 = make_layers([channel[1]], in_channels=channel[3], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         self.back1 = make_layers([channel[0]], in_channels=channel[2], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         self.back0 = make_layers([channel[0]], in_channels=channel[1], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         
-        # objective is density map(dmp) and (binary) attention map(amp)
         print('objective dmp+amp!')
         self.amp_conv4_0 = make_layers([channel[2]], in_channels=channel[3], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         if self.transform:
             self.amp_conv4_transform = feature_transform(channel[2], 256)
-        # self.amp_conv4 = make_layers([channel[2]], in_channels=channel[3], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        
+                
         self.amp_conv3 = make_layers([channel[2]], in_channels=channel[2], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         if self.transform:
             self.amp_conv3_transform = feature_transform(channel[2], 256)
@@ -88,8 +79,7 @@ class MARNet(nn.Module):
         self.amp_conv2_0 = make_layers([channel[1]], in_channels=channel[2], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         if self.transform:
             self.amp_conv2_transform = feature_transform(channel[1], 128)
-        # self.amp_conv2 = make_layers([channel[1]], in_channels=channel[2], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        
+                
         self.amp_conv1 = make_layers([channel[1]], in_channels=channel[1], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         if self.transform:
             self.amp_conv1_transform = feature_transform(channel[1], 128)
@@ -112,8 +102,7 @@ class MARNet(nn.Module):
         self.outconv1 = nn.Conv2d(channel[0],1,3,padding=1)
         self.output_layer = nn.Conv2d(channel[0], 1, kernel_size=1)
         self.load_model = load_model
-        # self._init_weights()
-
+        
         self._initialize_weights()
         self.features = []
 
@@ -121,13 +110,7 @@ class MARNet(nn.Module):
     def forward(self, x_in):
         self.features = []
 
-        # x0 = self.front0(x_in)#1 size, 64
-        # x1 = self.front1(x0)#1/2 size, 128
-        # x2 = self.front2(x1)#1/4 size, 256
-        # x3 = self.front3(x2)#1/8 size, 512
-        # x4 = self.front4(x3)#1/16 size, 512
-        # x_brg = self.brg(x4)#1/16 size, 512
-        
+                                                        
         x0 = self.front0_0(x_in)
         if self.transform:
             self.features.append(self.front0_transform(x0))
@@ -194,7 +177,8 @@ class MARNet(nn.Module):
         xb4 = torch.cat([x_brg, x4], 1)#1/16, 1024
         if self.sf:
             self.xb4_before = xb4
-        xb4 = xb4 * amp4 # v2
+        xb4 = xb4 * amp4         
+
         if self.sf:
             self.xb4_after = xb4
         xb4 = self.back4(xb4) #1/16 size, 512
@@ -205,7 +189,8 @@ class MARNet(nn.Module):
         xb3 = torch.cat([x3, xb3], dim=1) #1/8 size, 1024
         if self.sf:
             self.xb3_before = xb3
-        xb3 = xb3 * amp3 # v2
+        xb3 = xb3 * amp3         
+
         if self.sf:
             self.xb3_after = xb3
         xb3 = self.back3(xb3) #1/8 size, 256
@@ -216,7 +201,8 @@ class MARNet(nn.Module):
         xb2 = torch.cat([x2, xb2], dim=1) #1/4 size, 512
         if self.sf:
             self.xb2_before = xb2
-        xb2 = xb2 * amp2 # v2
+        xb2 = xb2 * amp2         
+
         if self.sf:
             self.xb2_after = xb2
         xb2 = self.back2(xb2) #1/4 size, 128
@@ -225,7 +211,8 @@ class MARNet(nn.Module):
         xb1 = torch.cat([x1, xb1], dim=1)#1/2, 256
         if self.sf:
             self.xb1_before = xb1
-        xb1 = xb1 * amp1 # v2
+        xb1 = xb1 * amp1         
+
         if self.sf:
             self.xb1_after = xb1
         xb1 = self.back1(xb1)#1/2, 256
@@ -273,13 +260,10 @@ class MARNet(nn.Module):
         if not self.load_model:
             pretrained_dict = dict()
             model_dict = self.state_dict()
-            # path = 'models/MARUNet/pretrained/vgg16-397923af.pth'
-            # pretrained_model = torch.load(path)
             pretrained_model = load_state_dict_from_url("https://download.pytorch.org/models/vgg16-397923af.pth")
 
             self._random_init_weights()
-            # load the pretrained vgg16 parameters
-            
+                        
             for i, (k, v) in enumerate(pretrained_model.items()):
                 #print(i, k)
                   
@@ -316,9 +300,7 @@ class MARNet(nn.Module):
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                # nn.init.xavier_normal_(m.weight)
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                # nn.init.normal_(m.weight, std=0.01)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
@@ -337,7 +319,7 @@ def conv_layers(inp, oup, dilation=False):
 
 
 def feature_transform(inp, oup):
-    conv2d = nn.Conv2d(inp, oup, kernel_size=1)  # no padding
+    conv2d = nn.Conv2d(inp, oup, kernel_size=1)      
     relu = nn.ReLU(inplace=True)
     layers = []
     layers += [conv2d, relu]
