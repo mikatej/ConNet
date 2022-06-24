@@ -56,6 +56,7 @@ class MARNet(nn.Module):
         self._init_weights()
 
     def forward(self, x_in):
+        self.features = []
         x0 = self.front0(x_in)#1 size, 64
         x1 = self.front1(x0)#1/2 size, 128
         x2 = self.front2(x1)#1/4 size, 256
@@ -266,3 +267,31 @@ class MARNet(nn.Module):
         else:
             self.load_state_dict(torch.load(self.load_model))
             print(self.load_model,' loaded!')
+
+    def regist_hook(self):
+        self.features = []
+
+        def get(model, input, output):
+            # function will be automatically called each time, since the hook is injected
+            self.features.append(output.detach())
+
+        # for name, module in self._modules['frontend']._modules.items():
+        #     if name in ['1', '4', '9', '16']:
+        #         self._modules['frontend']._modules[name].register_forward_hook(get)
+        # for name, module in self._modules['backend']._modules.items():
+        #     if name in ['1', '7']:
+        #         self._modules['backend']._modules[name].register_forward_hook(get)
+
+        for m in self._modules:
+            for name, module in self._modules[m]._modules.items():
+
+                if (m in ['front0', 'brg', 'back3'] and name == '1'):
+                # if (m in ['front0', 'brg', 'back3', 'amp_conv4', 'amp_conv2'] and name == '1'):
+                    self._modules[m]._modules[name].register_forward_hook(get)
+
+                elif (type(module) == nn.modules.pooling.MaxPool2d):
+                    self._modules[m]._modules[name].register_forward_hook(get)
+
+                elif ('amp_conv' in m and name == '1'):
+                    self._modules[m]._modules[name].register_forward_hook(get)
+

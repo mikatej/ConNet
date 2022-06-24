@@ -24,6 +24,7 @@ import shutil
 
 from compression.skt_utils import AverageMeter, cal_para
 from compression.skt_distillation import cosine_similarity, scale_process, cal_dense_fsp, upsample_process
+import torch.nn.functional as F2
 
 
 class Compressor(object):
@@ -63,7 +64,7 @@ class Compressor(object):
     def compress(self):
 
         if self.compression == 'skt':
-            raise Exception("Not yet implemented")
+            self.skt()
 
         elif self.compression == 'musco':
             # self.build_model()
@@ -151,8 +152,8 @@ class Compressor(object):
         # torch.save(state, os.path.join(path, filename))
 
         torch.save(state, os.path.join(
-            self.output_txt[:self.output_txt.rfind('\\')]),
-            filename)
+            self.output_txt[:self.output_txt.rfind('\\')],
+            filename))
         
     def print_loss_log(self, start_time, iters_per_epoch, e, i, loss, num_epochs):
         """
@@ -527,18 +528,17 @@ class Compressor(object):
             self.model.cuda()
             self.student_model.cuda()
 
-        self.optimizer, _ = self.build_optimizer_loss()
+        self.optimizer, self.criterion = self.build_optimizer_loss(self.student_model)
 
         best_mae, best_mse = 1e3, 1e3
+        path = self.output_txt[:self.output_txt.rfind('\\')]
         for epoch in range(0, self.num_epochs):
             self.compression_save_path = self.output_txt[:self.output_txt.rfind('\\')] + "/compression step {}".format(epoch)
             
             print("TRAIN")
-            self.skt_train(self.model, self.student_model, self.criterion)
+            self.skt_train(self.model, self.student_model, self.criterion, epoch)
             print("VAL")
-            mae, mse = self.eval(self.student_model, self.data_loaders['val'])
-            print("MAE: {.3f}, MSE: {.3f}  |  best_MAE: {.3f}, best_MSE: {.3f}".format(mae, mse, best_mae, best_mse))
-            print()
+            mae, mse, _ = self.eval(self.student_model, self.data_loaders['val'], save_path=os.path.join(path, "epoch {}".format(epoch+1)))
 
             if self.skt_save_freq != 0 and (epoch+1) % self.skt_save_freq == 0:
                 checkpoint = {
@@ -566,14 +566,21 @@ class Compressor(object):
                 }
 
                 self.save_checkpoint(checkpoint,
-                    "epoch_{}_mae_{}_mse_{}".format(
+                    "epoch_{}_mae_{}_mse_{}.pth.tar".format(
                         epoch+1,
                         "{:.3f}".format(mae).replace('.', '-'),
                         "{:.3f}".format(mse).replace('.', '-')
                     )
                 )
 
-    def skt_train(self, teacher, student, criterion):
+            write_print(os.path.join(path, 'mae mse.txt'),
+                "[EPOCH {}]  MAE: {:.3f}, MSE: {:.3f}  |  best_MAE: {:.3f}, best_MSE: {:.3f}"
+                .format(epoch+1, mae, mse, best_mae, best_mse))
+            if (epoch+1) % 5 == 0:
+                write_print(os.path.join(path, 'mae mse.txt'), " ")
+            print()
+
+    def skt_train(self, teacher, student, criterion, epoch=0):
         losses_h = AverageMeter()
         losses_s = AverageMeter()
         losses_fsp = AverageMeter()
@@ -583,11 +590,12 @@ class Compressor(object):
         data_loader = self.data_loaders['train']
         teacher.eval()
         student.train()
-        for i, (images, labels) in enumerate(tqdm(data_loader)):
-            images = to_var(images, self.use_gpu)
+        for i, (img, target) in enumerate(data_loader):
+            img = to_var(img, self.use_gpu)
+            img = img.float()
 
-            labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
-            labels = torch.stack(labels)
+            target = [to_var(torch.Tensor(t), self.use_gpu) for t in target]
+            target = torch.stack(target)
 
             # get teacher output
             with torch.no_grad():
@@ -626,7 +634,7 @@ class Compressor(object):
                 divide_val = 1.
 
             loss_fsp = torch.tensor([0.], dtype=torch.float).cuda()
-            if args.lamb_fsp:
+            if self.skt_lamb_fsp:
                 loss_f = []
                 assert len(teacher_fsp) == len(student_fsp)
                 for t in range(len(teacher_fsp)):
@@ -634,7 +642,7 @@ class Compressor(object):
                 loss_fsp = sum(loss_f) * self.skt_lamb_fsp
 
             loss_cos = torch.tensor([0.], dtype=torch.float).cuda()
-            if args.lamb_cos:
+            if self.skt_lamb_cos:
                 loss_c = []
                 for t in range(len(student_features) - 1):
                     loss_c.append(cosine_similarity(student_features[t] / divide_val, teacher.features[t] / divide_val))
@@ -648,19 +656,32 @@ class Compressor(object):
             losses_fsp.update(loss_fsp.item(), img.size(0))
             losses_cos.update(loss_cos.item(), img.size(0))
             
-            optimizer.zero_grad()
+            self.optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
+            self.optimizer.step()
 
-            if i == self.skt_print_freq:
+            if (i+1) % self.skt_print_freq == 0:
                 print(
+                      'EPOCH {} [{}/{}] '
                       'Loss_h {loss_h.avg:.4f}  '
                       'Loss_s {loss_s.avg:.4f}  '
                       'Loss_fsp {loss_fsp.avg:.4f}  '
                       'Loss_cos {loss_kl.avg:.4f}  '
                     .format(
+                    epoch, i+1, len(data_loader),
                     loss_h=losses_h, loss_s=losses_s,
                     loss_fsp=losses_fsp, loss_kl=losses_cos))
+        print()
+        write_to_file(os.path.join(self.output_txt[:self.output_txt.rfind('\\')], 'losses.txt'),
+                  'Epoch: [{0}]\t'
+                  'Loss_h {loss_h.avg:.4f}  '
+                  'Loss_s {loss_s.avg:.4f}  '
+                  'Loss_fsp {loss_fsp.avg:.4f}  '
+                  'Loss_cos {loss_kl.avg:.4f}'
+                .format(
+                epoch + 1,
+                loss_h=losses_h, loss_s=losses_s,
+                loss_fsp=losses_fsp, loss_kl=losses_cos))
 
     def marunet_loss(self, student_output, target):
         loss = 0

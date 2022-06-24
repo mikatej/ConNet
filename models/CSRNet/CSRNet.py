@@ -18,6 +18,8 @@ class CSRNet(nn.Module):
             for i in range(len(self.frontend.state_dict().items())):
                 list(self.frontend.state_dict().items())[i][1].data[:] = list(mod.state_dict().items())[i][1].data[:]
     def forward(self,x):
+        self.features = []
+
         x = self.frontend(x)
         x = self.backend(x)
         x = self.output_layer(x)
@@ -31,6 +33,21 @@ class CSRNet(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
+
+
+    def regist_hook(self):
+        self.features = []
+
+        def get(model, input, output):
+            # function will be automatically called each time, since the hook is injected
+            self.features.append(output.detach())
+
+        for name, module in self._modules['frontend']._modules.items():
+            if name in ['1', '4', '9', '16']:
+                self._modules['frontend']._modules[name].register_forward_hook(get)
+        for name, module in self._modules['backend']._modules.items():
+            if name in ['1', '7']:
+                self._modules['backend']._modules[name].register_forward_hook(get)
             
                 
 def make_layers(cfg, in_channels = 3,batch_norm=False,dilation = False):
