@@ -91,7 +91,8 @@ def get_loader(config):
                             density_sigma=config.density_sigma,
                             image_transform=image_transform,
                             targets_resize=targets_resize,
-                            part=config.part)
+                            # part=config.part
+                            )
 
 
     if config.dataset == 'pets':

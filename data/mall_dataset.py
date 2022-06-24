@@ -59,13 +59,6 @@ class MallDataset(TensorDataset):
         elif self.mode == 'test':
             self.image_path = osp.join(self.data_path, 'test', '%s')
 
-        # self.ids = ['seq_001406.jpg', 'seq_001643.jpg', 'seq_000916.jpg']
-        self.ids = ['seq_001406.jpg', 'seq_001838.jpg', 'seq_000916.jpg', 'seq_000954.jpg', 'seq_001657.jpg']
-        self.image_ids = self.ids
-        self.targets = [i.replace('jpg', 'h5') for i in self.ids]
-        self.target_path = osp.join(self.data_path, density_sigma, '%s')
-        return
-
         image_path = self.image_path % '*.jpg'
         images = glob.glob(image_path)
 

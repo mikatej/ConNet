@@ -50,15 +50,6 @@ class MICC(Dataset):
         elif self.mode == 'test':
             list_path = osp.join(file_path, "%s_testing.txt")
 
-
-        self.image_path = osp.join(file_path, 'RGB', '%s')
-        self.target_path = osp.join(file_path, density_sigma, '%s')
-        self.ids = [("groups", "759.png"), ("flow", "1063.png"), ("groups", "169.png"), ("flow", "306.png"), ("queue", "45.png")]
-        # self.ids = [("flow", "160.png"), ("flow", "306.png")]
-        self.image_ids.extend(['{}_{}'.format(i[0], i[1]) for i in self.ids])
-        self.targets = [(i[0], i[1].replace('.png', '.h5')) for i in self.ids]
-        return
-
         categories = ['flow', 'groups', 'queue']
         if self.dataset_subcategory == 'all':
             # categories = [self.dataset_subcategory]
