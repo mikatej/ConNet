@@ -1,7 +1,6 @@
 import torch.nn as nn
 from .pytorch_ssim import *
 
-
 class Discriminator(nn.Module):
     
     def __init__(self):

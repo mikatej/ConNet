@@ -27,9 +27,7 @@ def get_loader(config):
         DataLoader -- DataLoader object of the specified dataset to be used
         list -- list of image IDs in the dataset 
     """
-
-    print(type(config))
-    raise Exception()
+    
     dataset = None
     loader = None
     targets_resize = 1

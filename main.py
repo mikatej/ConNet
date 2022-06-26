@@ -108,8 +108,8 @@ if __name__ == '__main__':
     # dataset info
     parser.add_argument('--input_channels', type=int, default=3,
                         help='Number of input channels')
-    parser.add_argument('--class_count', type=int, default=102,
-                        help='Number of classes in dataset')
+    # parser.add_argument('--class_count', type=int, default=102,
+    #                     help='Number of classes in dataset')
     parser.add_argument('--dataset', type=str, default='mall',
                         choices=['micc', 'mall', 'pets', 'fdst'],
                         help='Dataset to use')
@@ -148,7 +148,7 @@ if __name__ == '__main__':
                         help='List of epochs to reduce the learning rate')
     parser.add_argument('--batch_size', type=int, default=1,
                         help='Batch size')
-    parser.add_argument('--model', type=str, default='MARUNetMUSCO_mall',
+    parser.add_argument('--model', type=str, default='MCNN',
                         choices=['ConNet_mall', 'ConNet_micc', 'CSRNet', 'MCNN', 'MARUNet', 'CSRNetSKT', 'MARUNetSKT', 'MARUNetMUSCO_mall', 'MARUNetMUSCO_micc', 'CSRNetMUSCO_mall', 'CSRNetMUSCO_micc'] + musco_model_names,
                         help='CNN model to use')
     parser.add_argument('--backbone_model', type=str, default='vgg16',
@@ -171,7 +171,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, default='test',
                         choices=['train', 'val', 'test', 'pred'],
                         help='Mode of execution')
-    parser.add_argument('--use_compress', type=string_to_boolean, default='true',
+    parser.add_argument('--use_compress', type=string_to_boolean, default='false',
                         help='Toggles execution of compression technique')
     parser.add_argument('--compression', type=str, default='musco',
                         choices=['skt', 'musco'],
@@ -179,14 +179,9 @@ if __name__ == '__main__':
     parser.add_argument('--use_gpu', type=string_to_boolean, default=True,
                         help='Toggles the use of GPU')
 
-    # ip102 dataset
-    parser.add_argument('--ip102_data_path', type=str,
-                        default='../../Datasets/ip102_v1.1/',
-                        help='IP102 dataset path')
-
     # mall dataset
     parser.add_argument('--mall_data_path', type=str,
-                        default='../../CCCMIS/Datasets/mall_dataset/',
+                        default='../../ths-st2/Datasets/mall_dataset/',
                         help='Mall dataset path')
 
     # micc dataset
@@ -194,12 +189,8 @@ if __name__ == '__main__':
                         default='../../CCCMIS/Datasets/MICC/',
                         help='MICC dataset path')
 
-    # micc dataset
-    parser.add_argument('--pets_data_path', type=str,
-                        default='../../CCCMIS/Datasets/Crowd_PETS09/',
-                        help='PETS2009 dataset path')
 
-    # micc dataset
+    # fdst dataset
     parser.add_argument('--fdst_data_path', type=str,
                         default='../../CCCMIS/Datasets/FDST/',
                         help='FDST dataset path')
@@ -218,12 +209,15 @@ if __name__ == '__main__':
 
     # musco
     parser.add_argument('--musco_filter_layers', type=string_to_boolean, default='false')
+    parser.add_argument('--musco_layers_to_compress', type=str, default='')
     parser.add_argument('--musco_ft_every', type=float, default=10)
     parser.add_argument('--musco_iters', type=int, default=5)
     parser.add_argument('--musco_ft_epochs', type=int, default=10)
     parser.add_argument('--musco_ft_checkpoint', type=int, default=1)
     parser.add_argument('--musco_ft_only', type=string_to_boolean, default="false")
 
+    # skt
+    parser.add_argument('--skt_student_ckpt', type=str, default=None)
     parser.add_argument('--skt_lamb_fsp', type=float, default=0.5)
     parser.add_argument('--skt_lamb_cos', type=float, default=0.5)
     parser.add_argument('--skt_print_freq', type=int, default=200)
@@ -240,9 +234,6 @@ if __name__ == '__main__':
         if gsp is not None:
             args['group_save_path'] = os.path.join(gsp, 'compress')
 
-        # model = args['pretrained_model']
-        # model = model[model.find('/') + 1: model.rfind('/')]
-        # args['group_save_path'] = os.path.join(args['group_save_path'], model)
     if args['group_save_path'] is not None:
         args['model_save_path'] = os.path.join(args['model_save_path'], args['group_save_path'])
         args['model_test_path'] = os.path.join(args['model_test_path'], args['group_save_path'])
@@ -260,7 +251,6 @@ if __name__ == '__main__':
 
         version = str(datetime.now()).replace(':', '_')
 
-        # version = '{} {}'.format(model[-2], version)
         path = os.path.join(args['model_save_path'], model, version)
         output_txt = os.path.join(path, '{}.txt'.format(version))
         compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], version))
@@ -281,7 +271,9 @@ if __name__ == '__main__':
 
     elif args['mode'] == 'val':
         model = args['pretrained_model'].split('/')
-        version = '{}_val_{}'.format(model[0], model[1])
+        version = '{}_test_{}'.format(model[-2], model[-1])
+        
+        args['model_test_path'] += '/' + '/'.join(model[:-1])
         path = args['model_test_path']
         path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))
@@ -289,8 +281,9 @@ if __name__ == '__main__':
 
     elif args['mode'] == 'test':
         model = args['pretrained_model'].split('/')
-        version = '{}_test_{}'.format(model[0], model[1])
-        args['model_test_path'] = args['model_test_path'] + "/[for density maps]"
+        version = '{}_test_{}'.format(model[-2], model[-1])
+        
+        args['model_test_path'] += '/' + '/'.join(model[:-1])
         path = args['model_test_path']
         path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))
@@ -298,7 +291,9 @@ if __name__ == '__main__':
 
     elif args['mode'] == 'pred':
         model = args['pretrained_model'].split('/')
-        version = '{}_pred_{}'.format(model[0], model[1])
+        version = '{}_test_{}'.format(model[-2], model[-1])
+        
+        args['model_test_path'] += '/' + '/'.join(model[:-1])
         path = args['model_test_path']
         path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))

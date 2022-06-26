@@ -22,6 +22,10 @@ class Solver(object):
     def __init__(self, version, data_loader, dataset_ids, config, output_txt, compile_txt):
         """
         Initializes a Solver object
+
+
+        Arguments:
+
         """
 
         # data loader
@@ -57,25 +61,14 @@ class Solver(object):
         # instantiate model
         self.model_name = self.model
         self.model = get_model(self.model,
-                               self.backbone_model,
                                self.imagenet_pretrain,
                                self.model_save_path,
-                               self.input_channels,
-                               self.class_count)
+                               self.input_channels)
 
         # instantiate loss criterion
-        # self.criterion = nn.CrossEntropyLoss()
-        self.criterion = nn.MSELoss() #.cuda()
+        self.criterion = nn.MSELoss() 
 
         # instantiate optimizer
-        # self.optimizer = optim.SGD(self.model.parameters(),
-        #                            lr=self.lr,
-        #                            momentum=self.momentum,
-        #                            weight_decay=self.weight_decay)
-
-        # self.optimizer = optim.Adam(params=self.model.parameters(),
-        #                             lr=self.lr)
-
         if 'MARUNet' in self.model_name or 'ConNet' in self.model_name:
             self.optimizer = optim.Adam(self.model.parameters(), lr = self.lr, weight_decay = self.weight_decay)
         else:
@@ -83,7 +76,7 @@ class Solver(object):
                                     lr=self.lr)
 
         # print network
-        # self.print_network(self.model, 'VGGNet')
+        self.print_network(self.model, self.model_name)
 
         # use gpu if enabled
         if torch.cuda.is_available() and self.use_gpu:
@@ -104,13 +97,16 @@ class Solver(object):
 
     def load_pretrained_model(self):
         """
-        loads a pre-trained model from a .pth file
+        loads a pre-trained model from a .pth or .pth.tar file
         """
 
+        # if pretrained model is a .pth file, load weights directly
         if ".pth.tar" not in self.pretrained_model:
+            self.pretrained_model = self.pretrained_model.replace('.pth', '')
             self.model.load_state_dict(torch.load(os.path.join(
                 self.model_save_path, '{}.pth'.format(self.pretrained_model))), strict=False)
-
+        
+        # if pretrained model is a .pth.tar file, load weights stored in 'state_dict' and 'optimizer' keys
         else:
             weights = torch.load(os.path.join(
                 self.model_save_path, '{}'.format(self.pretrained_model)))
@@ -149,7 +145,7 @@ class Solver(object):
 
     def save_model(self, e):
         """
-        Saves a model per e epoch
+        Saves the model and optimizer weights per e epoch
         """
         path = os.path.join(
             self.model_save_path,
@@ -159,7 +155,7 @@ class Solver(object):
         torch.save({'state_dict': copy.deepcopy(self.model.state_dict()),
             'optimizer': copy.deepcopy(self.optimizer.state_dict())}, path)
 
-    def model_step(self, images, labels, epoch):
+    def model_step(self, images, targets, epoch):
         """
         A step for each iteration
         """
@@ -170,44 +166,39 @@ class Solver(object):
         # empty the gradients of the model through the optimizer
         self.optimizer.zero_grad()
 
-        # print(images.dtype)
-        # print(torch.cuda.memory_summary())
         # forward pass
         if self.model_name == 'MCNN':
-            output = self.model(images, labels)
+            output = self.model(images, targets)
         else:
             images = images.float()
             output = self.model(images)
 
+        # if model is MARUNet or ConNet, prepare groundtruth attention maps
         if 'MARUNet' in self.model_name or 'ConNet' in self.model_name:
             if 'ConNet' in self.model_name:
                 _, output = output
             output, d0, d1, d2, d3, d4, amp41, amp31, amp21, amp11, amp01 = output
-            amp_gt = [get_amp_gt_by_value(l) for l in labels]
+            amp_gt = [get_amp_gt_by_value(l) for l in targets]
             amp_gt = torch.stack(amp_gt).cuda()
-            # labels = labels * 50
-
-        # if self.save_output_plots:
-        #     file_path = os.path.join(self.compile_txt[:self.compile_txt.rfind('COMPILED')], 'epoch ' + str(epoch +1))
-        #     save_plots(file_path, output, labels)
-
+            
         # compute loss
         if self.model_name == 'MCNN':
             self.model.loss.backward()
             loss = self.model.loss.item()
+
+        # if model is MARUNet or ConNet
         elif 'MARUNet' in self.model_name or 'ConNet' in self.model_name:
             loss = 0
+            target = 50 * targets[0].float().unsqueeze(1).cuda()
+            
+            # get losses of density maps
             outputs = [output, d0, d1, d2, d3, d4]
-
-            target = 50 * labels[0].float().unsqueeze(1).cuda()
             for out in outputs:
-                # out = out.cuda()
-                # loss += self.criterion(out.squeeze(), labels.squeeze())
                 loss += cal_avg_ms_ssim(out, target, 3)
 
+            # get losses of attention maps
             amp_outputs = [amp41, amp31, amp21, amp11, amp01]
             for amp in amp_outputs:
-                # print(amp, loss)
                 amp_gt_us = amp_gt[0].unsqueeze(0)
                 amp = amp.cuda()
                 if amp_gt_us.shape[2:]!=amp.shape[2:]:
@@ -216,29 +207,26 @@ class Solver(object):
                 cross_entropy_loss = torch.mean(cross_entropy)
                 loss = loss + cross_entropy_loss * 0.1
 
+            # compute gradients using back propagation
             loss.backward()
         else:
-            loss = self.criterion(output.squeeze(), labels.squeeze())
+            # compute loss using MSE loss function
+            loss = self.criterion(output.squeeze(), targets.squeeze())
+            
             # compute gradients using back propagation
             loss.backward()
 
         # update parameters
         self.optimizer.step()
 
-        if self.model_name == 'NLT':
-            self.lr_scheduler.step()
-
         # return loss
         return loss
 
     def train(self):
         """
-        Training process
+        Performs training process
         """
         self.losses = []
-        self.top_1_acc = []
-        self.top_5_acc = []
-
         iters_per_epoch = len(self.data_loader)
         sched = 0
 
@@ -263,15 +251,16 @@ class Solver(object):
         # start training
         start_time = time.time()
         for e in range(start, self.num_epochs):
-            for i, (images, labels) in enumerate(tqdm(self.data_loader)):
+            for i, (images, targets) in enumerate(tqdm(self.data_loader)):
+                # prepare input images
                 images = to_var(images, self.use_gpu)
 
-                # labels = to_var(torch.tensor(labels), self.use_gpu)
-                labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
-                labels = torch.stack(labels)
+                # prepare groundtruth targets
+                targets = [to_var(torch.Tensor(target), self.use_gpu) for target in targets]
+                targets = torch.stack(targets)
 
-                loss = self.model_step(images, labels, e)
-                # print("\t{:.6f}".format(loss.item()))
+                # train model and get loss
+                loss = self.model_step(images, targets, e)
 
             # print out loss log
             if (e + 1) % self.loss_log_step == 0:
@@ -282,9 +271,9 @@ class Solver(object):
             if (e + 1) % self.model_save_step == 0:
                 self.save_model(e)
 
+            # update learning rate based on learning schedule
             num_sched = len(self.learning_sched)
             if num_sched != 0 and sched < num_sched:
-                # if (e + 1) == self.learning_sched[sched]:
                 if (e + 1) in self.learning_sched:
                     self.lr /= 10
                     print('Learning rate reduced to', self.lr)
@@ -295,34 +284,20 @@ class Solver(object):
         for e, loss in self.losses:
             write_print(self.output_txt, str(e) + ' {:.10f}'.format(loss))
 
-        # print top_1_acc
-        write_print(self.output_txt, '\n--Top 1 accuracy--')
-        for e, acc in self.top_1_acc:
-            write_print(self.output_txt, str(e) + ' {:.4f}'.format(acc))
-
-        # print top_5_acc
-        write_print(self.output_txt, '\n--Top 5 accuracy--')
-        for e, acc in self.top_5_acc:
-            write_print(self.output_txt, str(e) + ' {:.4f}'.format(acc))
-
     def eval(self, data_loader):
         """
-        Returns the count of top 1 and top 5 predictions
+        Performs evaluation of a given model to get the MAE, MSE, FPS performance
         """
 
         # set the model to eval mode
         self.model.eval()
 
-        y_true = to_var(torch.LongTensor([]), self.use_gpu)
-        y_pred = to_var(torch.LongTensor([]), self.use_gpu)
-        # out = []
-        # sm = nn.Softmax()
         timer = Timer()
         elapsed = 0
-
         mae = 0
         mse = 0
 
+        # predetermined save frequency of density maps on certain datasets
         if self.dataset == 'mall':
             save_freq = 100
         elif self.dataset == 'micc':
@@ -330,50 +305,53 @@ class Solver(object):
         else:
             save_freq = 50
 
+        # begin evaluating on the dataset
         with torch.no_grad():
-            for i, (images, labels) in enumerate(tqdm(data_loader)):
+            for i, (images, targets) in enumerate(tqdm(data_loader)):
+                # prepare the input images
                 images = to_var(images, self.use_gpu)
-
-                labels = [to_var(torch.Tensor(label), self.use_gpu) for label in labels]
-                labels = torch.stack(labels)
                 images = images.float()
+
+                # prepare the groundtruth targets
+                targets = [to_var(torch.Tensor(target), self.use_gpu) for target in targets]
+                targets = torch.stack(targets)
                 
+                # generate output of model
                 timer.tic()
                 output = self.model(images)
                 elapsed += timer.toc(average=False)
 
-                ids = self.dataset_ids[i*self.batch_size: i*self.batch_size + self.batch_size]
-
+                # if model is MARUNet, divide output by 50 as designed by original proponents
                 if 'MARUNet' in self.model_name or 'ConNet' in self.model_name:
                     output = output[0] / 50
 
+                ids = self.dataset_ids[i*self.batch_size: i*self.batch_size + self.batch_size]
                 model = self.pretrained_model.split('/')
-                file_path = os.path.join(self.model_test_path, model[0], self.dataset_info + ' epoch ' + model[1])
+                file_path = os.path.join(self.model_test_path, model[-2], self.dataset_info + ' epoch ' + model[-1])
+                
+                # generate copies of density maps as images 
+                # if difference between predicted and actual counts are bigger than 1
                 if self.fail_cases:
-                    l = labels[0].cpu().detach().numpy()
+                    t = targets[0].cpu().detach().numpy()
                     o = output[0].cpu().detach().numpy()
 
-                    gt_count = round(np.sum(l))
+                    gt_count = round(np.sum(t))
                     et_count = round(np.sum(o))
 
                     diff = abs(gt_count - et_count)
 
                     if (diff > 0):
-                        save_plots(os.path.join(file_path, 'failure cases', str(diff)), output, labels, ids)
+                        save_plots(os.path.join(file_path, 'failure cases', str(diff)), output, targets, ids)
+                
+                # generate copies of density maps as images
                 if self.save_output_plots and i % save_freq == 0:
-                    save_plots(file_path, output, labels, ids)
+                    save_plots(file_path, output, targets, ids)
 
-                # _, top_1_output = torch.max(output.data, dim=1)
-                # out.append(str(sm(output.data).tolist()))
-                y_true = torch.cat((y_true, labels))
-                y_pred = torch.cat((y_pred, output))
+                # update MAE and MSE (summation part of the formula)
+                mae += abs(output.sum() - targets.sum()).item()
+                mse += ((targets.sum() - output.sum())*(targets.sum() - output.sum())).item()
 
-                mae += abs(output.sum() - labels.sum()).item()
-                mse += ((labels.sum() - output.sum())*(labels.sum() - output.sum())).item()
-
-        y_true = y_true.cpu()
-        y_pred = y_pred.cpu()
-
+        # compute for MAE, MSE and FPS
         mae = mae / len(data_loader)
         mse = np.sqrt(mse / len(data_loader))
         fps = len(data_loader) / elapsed
@@ -423,7 +401,11 @@ class Solver(object):
         """
         Evaluates the performance of the model using the test dataset
         """
+
+        # evaluate the model
         out = self.eval(self.data_loader)
+
+        # log the performance
         log = ('mae: {:.6f}, mse: {:.6f}, '
                'fps: {:.4f}')
         log = log.format(out[0], out[1], out[2])
