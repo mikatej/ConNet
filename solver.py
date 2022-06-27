@@ -25,7 +25,12 @@ class Solver(object):
 
 
         Arguments:
-
+            version {str}
+            data_loader {DataLoader}
+            dataset_ids {list}
+            config {argparse.NameSpace}
+            output_txt {str}
+            compile_txt {str}
         """
 
         # data loader

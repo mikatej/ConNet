@@ -1,3 +1,10 @@
+'''
+    Code taken directly from the official MARNet github repository
+    https://github.com/rongliangzi/MARUNet
+
+    found in utils/losses.py
+'''
+
 import torch.nn as nn
 from .pytorch_ssim import *
 

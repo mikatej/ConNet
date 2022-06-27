@@ -1,3 +1,10 @@
+'''
+    Code taken directly from the official MARNet github repository
+    https://github.com/rongliangzi/MARUNet
+
+    found in utils/pytorch_ssim/__init__.py
+'''
+
 import torch
 import torch.nn.functional as F
 from torch.autograd import Variable

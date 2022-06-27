@@ -1,3 +1,8 @@
+'''
+  Code taken directly from the official MUSCO github repository
+  https://github.com/musco-ai/musco-pytorch
+'''
+
 import numpy as np
 import torch
 from torch import nn

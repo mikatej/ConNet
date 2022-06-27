@@ -1,3 +1,16 @@
+'''
+    Code taken directly from the official MUSCO github repository
+    https://github.com/musco-ai/musco-pytorch
+
+    Minor changes made:
+        - added lines 102-103
+        - commented out lines 111-112
+
+    This prevents the Compressor object from compressing layers that are of different
+    degrees of compression / iterations at the same time. Thus, at every compression
+    step, all layers are compressed an equal number of times.
+'''
+
 import torch.nn as nn
 from collections import defaultdict
 import copy

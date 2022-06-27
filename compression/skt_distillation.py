@@ -1,3 +1,10 @@
+'''
+    Code taken directly from the official SKT github repository
+    https://github.com/chen-judge/SKT
+
+    found in models/distillation.py
+'''
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

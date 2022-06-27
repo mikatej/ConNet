@@ -31,22 +31,27 @@ class Compressor(object):
 
     DEFAULTS = {}
 
-    def __init__(self, version, data_loaders, dataset_ids, config, output_txt, compile_txt):
+    def __init__(self, data_loaders, dataset_ids, config, output_txt):
         """
         Initializes a Compressor object
+
+        Arguments:
+            data_loaders {list} - list of two DataLoader objects, for training and validating
+            dataset_ids {list} - list of image IDs, used for naming the exported density maps
+            config {argparse.Namespace} - contains all necessary details for compression 
+            output_txt {str} - file name for the text file where details are logged
         """
 
         self.__dict__.update(Compressor.DEFAULTS, **config)
-        self.version = version
         self.data_loaders = data_loaders
         self.dataset_ids = dataset_ids
         self.output_txt = output_txt
-        self.compile_txt = compile_txt
 
         self.dataset_info = self.dataset
         if (self.dataset == 'micc'):
             self.dataset_info = '{} {}'.format(self.dataset, self.dataset_subcategory)
 
+        # instantiate the model
         self.build_model()
 
         # start with a pre-trained model
@@ -94,6 +99,9 @@ class Compressor(object):
     def build_optimizer_loss(self, model):
         '''
         Initializes the optimizer and loss criterion to be used
+
+        Arguments:
+            model {Object} -- the model to be used
         '''
 
         # Instantiate the loss criterion
@@ -112,6 +120,10 @@ class Compressor(object):
     def print_network(self, model, name):
         """
         Prints the structure of the network and the total number of parameters
+
+        Arguments:
+            model {Object} -- the model to be used
+            name {str} -- name of the model
         """
 
         write_print(self.output_txt, name)
@@ -121,6 +133,9 @@ class Compressor(object):
     def print_num_params(self, model):
         '''
         Prints the total number of parameters
+        
+        Arguments:
+            model {Object} -- the model to be used
         '''
 
         num_params = 0
@@ -151,6 +166,11 @@ class Compressor(object):
     def save_checkpoint(self, state, filename='checkpoint.pth.tar'):
         '''
         Saves the model weights as either a .pth file or a .pth.tar file
+        
+        Arguments:
+            state {dict or state_dict} -- either a dict containing the model's weights and
+                other details or just the state_dict of the model's weights
+            filename {str} -- filename to be used 
         '''
 
         torch.save(state, os.path.join(
@@ -160,6 +180,14 @@ class Compressor(object):
     def print_loss_log(self, start_time, iters_per_epoch, e, i, loss, num_epochs):
         """
         Prints the loss and elapsed time for each epoch
+        
+        Arguments:
+            start_time {float} -- time (milliseconds) at which training of an epoch began
+            iters_per_epoch {int} -- number of iterations in an epoch
+            e {int} -- current epoch
+            i {int} -- current iteraion
+            loss {float} -- loss value
+            num_epochs {int} -- total number of epochs to train
         """
 
         total_iter = num_epochs * iters_per_epoch
@@ -188,6 +216,13 @@ class Compressor(object):
     def eval(self, compressed_model, data_loader, save_path=None):
         """
         Performs evaluation of a given model to get the MAE, MSE, FPS performance
+        
+        Arguments:
+            compressed_model {Object} -- model to be used
+            data_loader {DataLoader} -- DataLoader for validation
+
+        Keyword Arguments:
+            save_path {str} -- file path to where exported density maps will be saved
         """
 
         # set the model to eval mode
@@ -204,8 +239,8 @@ class Compressor(object):
         else:
             save_freq = 30
 
-        if save_path is None:
-            save_path = self.model_test_path
+        # if save_path is None:
+        #     save_path = self.model_test_path
 
         # begin evaluating on the dataset
         with torch.no_grad():
@@ -344,6 +379,12 @@ class Compressor(object):
     def model_step(self, model, images, targets, epoch):
         """
         A step for each iteration
+        
+        Arguments:
+            model {Object} -- model to be used
+            images {torch.Tensor} -- input images
+            targets {torch.Tensor} -- groundtruth density maps
+            epoch {int} -- current epoch
         """
 
         # set model in training mode
@@ -413,6 +454,14 @@ class Compressor(object):
     def musco_train(self, model, num_epochs, eval_freq=None, checkpoint_file_name="checkpoint"):
         """
         Performs training process tailored specifically for the MUSCO algorithm
+        
+        Arguments:
+            model {Object} -- model to be used
+            num_epochs {int} -- total number of epochs
+
+        Keyword Arguments:
+            eval_freq {int} -- frequency at which trained epochs are also evaluated
+            checkpoint_file_name {str} - filename to be used for saving weights        
         """
 
         self.losses = []
@@ -583,6 +632,15 @@ class Compressor(object):
     def skt_train(self, teacher, student, criterion, epoch=0, save_path=None):
         '''
         Performs training process tailored specifically for the SKT algorithm
+        
+        Arguments:
+            teacher {Object} -- teacher model to be used
+            student {Object} -- student/compressed model to be used
+            criterion {} -- loss criterion to be used
+
+        Keyword Arguments:
+            epoch {int} -- current epoch
+            save_path {str} -- file path to where files should be saved
         '''
 
         # instantiate objects for losses
@@ -648,7 +706,7 @@ class Compressor(object):
                 loss_f = []
                 assert len(teacher_fsp) == len(student_fsp)
                 for t in range(len(teacher_fsp)):
-                    loss_f.append(criterion(teacher_fsp[t] / divide_val, student_fsp[t] / divide_val))
+                    loss_f.append(criterion(student_fsp[t] / divide_val, teacher_fsp[t] / divide_val))
                 loss_fsp = sum(loss_f) * self.skt_lamb_fsp
 
             loss_cos = torch.tensor([0.], dtype=torch.float).cuda()
@@ -697,6 +755,12 @@ class Compressor(object):
         '''
         Computes the loss of a MARUNet model, tailored specifically for the SKT algorithm.
         This accepts both groundtruth and teacher model's output as target.
+        
+        Arguments:
+            student_output {list} -- list of outputs (density and attention maps) from 
+                the student/compressed model
+            target {tuple OR torch.Tensor} -- either a tuple of outputs from the teacher
+                model (density and attention maps) OR the groundtruth density map
         '''
 
         loss = 0

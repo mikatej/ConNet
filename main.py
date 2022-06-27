@@ -80,7 +80,7 @@ def main(version, config, output_txt, compile_txt):
             'train': train_loader,
             'val': val_loader
         }
-        compressor = Compressor(version, data_loaders, dataset_ids, vars(config), output_txt, compile_txt)
+        compressor = Compressor(data_loaders, dataset_ids, vars(config), output_txt)
         compressor.compress()
         return
 
