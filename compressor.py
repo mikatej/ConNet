@@ -250,7 +250,7 @@ class Compressor(object):
                 images = images.float()
 
                 # prepare the groundtruth targets
-                targets = [to_var(torch.Tensor(label), self.use_gpu) for target in targets]
+                targets = [to_var(torch.Tensor(target), self.use_gpu) for target in targets]
                 targets = torch.stack(targets)
 
                 # generate output of model
@@ -304,8 +304,7 @@ class Compressor(object):
         model_stats = FlopCo(self.model, img_size = img_size, device = device)
 
         # get the ranks to pass to Compressor object
-        noncompressing_lnames = self.musco_get_ranks()
-        raise Exception()
+        noncompressing_lnames = self.musco_get_ranks(model_stats)
 
         # create Compressor object
         compressor = CompressorVBMF(self.model,
@@ -316,7 +315,7 @@ class Compressor(object):
 
         self.compressor_step = 0
         save_path = self.output_txt[:self.output_txt.rfind('\\')]
-        self.compression_save_path = os.path.join(save_path, "compression step %d")
+        self.compression_save_path = os.path.join(save_path, "compression_step_%d")
 
         # begin MUSCO algorithm
         while not compressor.done:
@@ -333,7 +332,7 @@ class Compressor(object):
             self.optimizer, self.criterion = self.build_optimizer_loss(compressor.compressed_model.to(device))
             
             # train and eval
-            self.musco_train(compressor.compressed_model.to(device), self.musco_ft_epochs, eval_freq=self.musco_ft_checkpoint, checkpoint_file_name="compression step {}.pth.tar".format(self.compressor_step))
+            self.musco_train(compressor.compressed_model.to(device), self.musco_ft_epochs, eval_freq=self.musco_ft_checkpoint, checkpoint_file_name="compression_step_{}.pth.tar".format(self.compressor_step))
             write_print(self.output_txt, " ")
 
             # reload best performing epoch's weights into the compressed model
@@ -347,9 +346,12 @@ class Compressor(object):
 
         self.print_network(compressor.compressed_model, "FINAL {}-COMPRESSED {} MODEL".format(self.compression.upper(), self.model_name.upper()))
 
-    def musco_get_ranks(self):
+    def musco_get_ranks(self, model_stats):
         """
         Determines the layers to be compressed by the MUSCO algorithm
+
+        Argument:
+            model_stats {flopco.FlopCo} -- used for automatic selection of layers to compress
         """
 
         # if layers are not specified, all layers eligible for compression will be compressed
@@ -372,7 +374,7 @@ class Compressor(object):
         write_print(self.output_txt, str(lnames_to_compress))
 
         # format results as expected by the Compressor object
-        noncompressing_lnames = {key: None for key in model_stats.flops.keys() if key not in lnames_compress_me}
+        noncompressing_lnames = {key: None for key in model_stats.flops.keys() if key not in lnames_to_compress}
         
         return noncompressing_lnames
 
@@ -479,7 +481,7 @@ class Compressor(object):
                 images = to_var(images, self.use_gpu)
 
                 # prepare groundtruth targets
-                targets = [to_var(torch.Tensor(label), self.use_gpu) for label in targets]
+                targets = [to_var(torch.Tensor(target), self.use_gpu) for target in targets]
                 targets = torch.stack(targets)
 
                 # train model and get loss
@@ -554,8 +556,6 @@ class Compressor(object):
         # begin algorithm
         best_mae, best_mse = 1e3, 1e3
         for epoch in range(start, self.skt_num_epochs):
-            self.compression_save_path = os.path.join(path, 'compression step {}'.format(epoch))
-            
             # train
             print("TRAIN")
             self.skt_train(self.model, self.student_model, self.criterion, epoch, path)
@@ -620,7 +620,7 @@ class Compressor(object):
         epoch = int(epoch)
 
         # load weights
-        weights = torch.load('{}'.format(self.skt_student_ckpt))
+        weights = torch.load('{}/{}'.format(self.model_save_path, self.skt_student_ckpt))
         self.student_model.load_state_dict(weights['state_dict'])
         self.optimizer.load_state_dict(weights['optimizer'])
 
@@ -636,7 +636,7 @@ class Compressor(object):
         Arguments:
             teacher {Object} -- teacher model to be used
             student {Object} -- student/compressed model to be used
-            criterion {} -- loss criterion to be used
+            criterion {torch.nn.modules.loss} -- loss criterion to be used
 
         Keyword Arguments:
             epoch {int} -- current epoch

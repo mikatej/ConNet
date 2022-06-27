@@ -355,7 +355,7 @@ class Solver(object):
 
                 ids = self.dataset_ids[i*self.batch_size: i*self.batch_size + self.batch_size]
                 model = self.pretrained_model.split('/')
-                file_path = os.path.join(self.model_test_path, model[-2], self.dataset_info + ' epoch ' + model[-1])
+                file_path = os.path.join(self.model_test_path, self.dataset_info + ' epoch ' + self.get_epoch_num())
                 
                 # generate copies of density maps as images 
                 # if difference between predicted and actual counts are bigger than 1
@@ -420,7 +420,7 @@ class Solver(object):
                     output = output[0] / 50
 
                 model = self.pretrained_model.split('/')
-                file_path = os.path.join(self.model_test_path, model[0], '{} {} epoch {}'.format(self.model_name, self.dataset_info, model[1]))
+                file_path = os.path.join(self.model_test_path, '{} {} epoch {}'.format(self.model_name, self.dataset_info, self.get_epoch_num()))
 
                 if self.save_output_plots and i % save_freq == 0:
                     save_plots(file_path, output, [], ids, pred=True)
@@ -439,8 +439,24 @@ class Solver(object):
         log = log.format(out[0], out[1], out[2])
         write_print(self.output_txt, log)
 
-        epoch_num = self.output_txt[self.output_txt.rfind('_')+1:-4].replace('.pth.tar', '')
+        epoch_num = self.get_epoch_num()
         write_to_file(self.compile_txt, 'epoch {} | {}'.format(epoch_num, log))
 
-        if (int(epoch_num) % 5 == 0):
-            write_to_file(self.compile_txt, '')
+        try:
+            if (int(epoch_num) % 5 == 0):
+                write_to_file(self.compile_txt, '')
+        except:
+            pass
+
+    def get_epoch_num(self):
+        '''
+        Gets the epoch number given the format of the pretrained model's file name
+        '''
+
+        if 'SKT experiments' in self.model_test_path:
+            epoch_num = self.output_txt.split('/')[-1]
+            epoch_num = epoch_num[epoch_num.rfind('epoch_')+6:epoch_num.rfind('_mae')]
+        else:
+            epoch_num = self.output_txt[self.output_txt.rfind('_')+1:-4].replace('.pth.tar', '')
+
+        return epoch_num

@@ -193,7 +193,7 @@ if __name__ == '__main__':
 
     # mall dataset
     parser.add_argument('--mall_data_path', type=str,
-                        default='../../ths-st2/Datasets/mall_dataset/',
+                        default='../../CCCMIS/Datasets/mall_dataset/',
                         help='Mall dataset path')
 
     # micc dataset
@@ -241,23 +241,7 @@ if __name__ == '__main__':
     args = vars(config)
     output_txt = ''
 
-    '''
-        Preparation of file paths where files will be saved
-    '''
-    if args['use_compress']:
-        gsp = args['group_save_path']
-        args['group_save_path'] = args['compression'].upper() + " " + args['mode']
-        if gsp is not None:
-            args['group_save_path'] = os.path.join(gsp, 'compress')
-
-    if args['group_save_path'] is not None:
-        args['model_save_path'] = os.path.join(args['model_save_path'], args['group_save_path'])
-        args['model_test_path'] = os.path.join(args['model_test_path'], args['group_save_path'])
-
-
-    '''
-        Preparation of details for Compressor object (if use_compress == True)
-    '''
+    # Preparation of details for Compressor object (if use_compress == True)
     if args['use_compress']:
         '''
         load path to best saved weights as written in .json file
@@ -282,13 +266,11 @@ if __name__ == '__main__':
 
         version = str(datetime.now()).replace(':', '_')
 
-        path = os.path.join(args['model_save_path'], model, version)
+        path = os.path.join(args['model_save_path'], '{} experiments'.format(args['compression'].upper()), model, version)
         output_txt = os.path.join(path, '{}.txt'.format(version))
         compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], version))
 
-    '''
-        Preparation of details for Solver object (if use_compress == False)
-    '''
+    # Preparation of details for Solver object (if use_compress == False)
     elif args['mode'] == 'train':
         dataset = args['dataset']
         if dataset == 'micc':
@@ -309,7 +291,7 @@ if __name__ == '__main__':
         
         args['model_test_path'] += '/' + '/'.join(model[:-1])
         path = args['model_test_path']
-        path = os.path.join(path, model[0])
+        # path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))
         compile_txt = os.path.join(path, 'COMPILED {} {} {}.txt'.format(args['model'], args['mode'], model[0]))
 
@@ -319,7 +301,7 @@ if __name__ == '__main__':
         
         args['model_test_path'] += '/' + '/'.join(model[:-1])
         path = args['model_test_path']
-        path = os.path.join(path, model[0])
+        # path = os.path.join(path, model[0])
         output_txt = os.path.join(path, '{}.txt'.format(version))
         compile_txt = os.path.join(path, 'COMPILED {} {} {}.txt'.format(args['model'], args['mode'], model[0]))
 
