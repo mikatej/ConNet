@@ -20,8 +20,8 @@ def get_loader(config):
     """Returns the data loader and dataset image ids
 
     Arguments:
-        config {argparse.Namespace} -- contains information needed for the instantiation
-            of the DataLoader object (e.g., data path, mode)
+        config {dict} -- contains necessary arguments and its values for the 
+            instantiation of the DataLoader object
 
     Returns:
         DataLoader -- DataLoader object of the specified dataset to be used

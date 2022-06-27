@@ -36,10 +36,10 @@ class Compressor(object):
         Initializes a Compressor object
 
         Arguments:
-            data_loaders {list} - list of two DataLoader objects, for training and validating
-            dataset_ids {list} - list of image IDs, used for naming the exported density maps
-            config {argparse.Namespace} - contains all necessary details for compression 
-            output_txt {str} - file name for the text file where details are logged
+            data_loaders {list} -- list of two DataLoader objects, for training and validating
+            dataset_ids {list} -- list of image IDs, used for naming the exported density maps
+            config {dict} -- contains necessary arguments and its values for compression 
+            output_txt {str} -- file name for the text file where details are logged
         """
 
         self.__dict__.update(Compressor.DEFAULTS, **config)
@@ -553,7 +553,7 @@ class Compressor(object):
 
         # begin algorithm
         best_mae, best_mse = 1e3, 1e3
-        for epoch in range(start, self.num_epochs):
+        for epoch in range(start, self.skt_num_epochs):
             self.compression_save_path = os.path.join(path, 'compression step {}'.format(epoch))
             
             # train

@@ -23,14 +23,13 @@ class Solver(object):
         """
         Initializes a Solver object
 
-
         Arguments:
-            version {str}
-            data_loader {DataLoader}
-            dataset_ids {list}
-            config {argparse.NameSpace}
-            output_txt {str}
-            compile_txt {str}
+            version {str} -- version of the model based on the time
+            data_loader {DataLoader} -- DataLoader of the dataset to be used
+            dataset_ids {list} -- list of image IDs, used for naming the exported density maps
+            config {dict} -- contains arguments and its values
+            output_txt {str} -- file name for the text file where details are logged
+            compile_txt {str} -- file name for the text file where performance is compiled (if val/test mode)
         """
 
         # data loader
@@ -91,7 +90,12 @@ class Solver(object):
     def print_network(self, model, name):
         """
         Prints the structure of the network and the total number of parameters
+
+        Arguments:
+            model {Object} -- the model to be used
+            name {str} -- name of the model
         """
+
         num_params = 0
         for p in model.parameters():
             num_params += p.numel()
@@ -124,7 +128,15 @@ class Solver(object):
     def print_loss_log(self, start_time, iters_per_epoch, e, i, loss):
         """
         Prints the loss and elapsed time for each epoch
+        
+        Arguments:
+            start_time {float} -- time (milliseconds) at which training of an epoch began
+            iters_per_epoch {int} -- number of iterations in an epoch
+            e {int} -- current epoch
+            i {int} -- current iteraion
+            loss {float} -- loss value
         """
+
         total_iter = self.num_epochs * iters_per_epoch
         cur_iter = e * iters_per_epoch + i
 
@@ -151,6 +163,9 @@ class Solver(object):
     def save_model(self, e):
         """
         Saves the model and optimizer weights per e epoch
+
+        Arguments:
+            e {int} -- current epoch
         """
         path = os.path.join(
             self.model_save_path,
@@ -163,6 +178,11 @@ class Solver(object):
     def model_step(self, images, targets, epoch):
         """
         A step for each iteration
+        
+        Arguments:
+            images {torch.Tensor} -- input images
+            targets {torch.Tensor} -- groundtruth density maps
+            epoch {int} -- current epoch
         """
 
         # set model in training mode
@@ -292,6 +312,9 @@ class Solver(object):
     def eval(self, data_loader):
         """
         Performs evaluation of a given model to get the MAE, MSE, FPS performance
+
+        Arguments:
+            data_loader {DataLoader} -- DataLoader of the dataset to be used
         """
 
         # set the model to eval mode

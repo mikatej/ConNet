@@ -62,6 +62,18 @@ def string_to_boolean(v):
 
 
 def main(version, config, output_txt, compile_txt):
+    """Runs either Solver or Compressor object
+
+    Arguments:
+        v {string} -- string representation of a boolean values;
+        must be true or false
+
+    Returns:
+        config {dict} -- contains argument and its value
+        output_txt {str} -- file name for the text file where details are logged
+        compile_txt {str} -- file name for the text file where performance is compiled (if val/test mode)
+    """
+
     # for fast training
     cudnn.benchmark = True
 
@@ -155,7 +167,7 @@ if __name__ == '__main__':
                         choices=['vgg16', 'ResNet50'],
                         help='If NLT, which backbone model to use')
     parser.add_argument('--pretrained_model', type=str,
-                        default='MUSCO test/SKT/epoch666_best_mae.pth.tar/2022-06-08 21_15_16.592935/compression step 15.pth.tar',
+                        default=None,
                         help='Pre-trained model')
     parser.add_argument('--save_output_plots', type=string_to_boolean, default=True)
     parser.add_argument('--init_weights', type=string_to_boolean, default=True,
@@ -168,7 +180,7 @@ if __name__ == '__main__':
                         help='Toggles identification of failure cases')
 
     # misc
-    parser.add_argument('--mode', type=str, default='test',
+    parser.add_argument('--mode', type=str, default='train',
                         choices=['train', 'val', 'test', 'pred'],
                         help='Mode of execution')
     parser.add_argument('--use_compress', type=string_to_boolean, default='false',
@@ -218,6 +230,7 @@ if __name__ == '__main__':
 
     # skt
     parser.add_argument('--skt_student_ckpt', type=str, default=None)
+    parser.add_argument('--skt_num_epochs', type=int, default=1000)
     parser.add_argument('--skt_lamb_fsp', type=float, default=0.5)
     parser.add_argument('--skt_lamb_cos', type=float, default=0.5)
     parser.add_argument('--skt_print_freq', type=int, default=200)
@@ -228,6 +241,9 @@ if __name__ == '__main__':
     args = vars(config)
     output_txt = ''
 
+    '''
+        Preparation of file paths where files will be saved
+    '''
     if args['use_compress']:
         gsp = args['group_save_path']
         args['group_save_path'] = args['compression'].upper() + " " + args['mode']
@@ -238,16 +254,31 @@ if __name__ == '__main__':
         args['model_save_path'] = os.path.join(args['model_save_path'], args['group_save_path'])
         args['model_test_path'] = os.path.join(args['model_test_path'], args['group_save_path'])
 
+
+    '''
+        Preparation of details for Compressor object (if use_compress == True)
+    '''
     if args['use_compress']:
+        '''
+        load path to best saved weights as written in .json file
+
+        JSON file format
+            - <dataset name> ("mall"/"micc")
+                - <model name>
+                    - "path"
+        '''
+
         import json
         f = open(args['weights_json_path'])
         args['best_models'] = json.load(f)
         args['pretrained_model'] = args['best_models'][args['dataset']][args['model']]['path']
+
         if 'SKT' in args['pretrained_model']:
             model = args['pretrained_model']
             model = model[model.find('/') + 1:]
         else:
             model = args['pretrained_model'].split('/')[-2]
+
 
         version = str(datetime.now()).replace(':', '_')
 
@@ -255,6 +286,9 @@ if __name__ == '__main__':
         output_txt = os.path.join(path, '{}.txt'.format(version))
         compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], version))
 
+    '''
+        Preparation of details for Solver object (if use_compress == False)
+    '''
     elif args['mode'] == 'train':
         dataset = args['dataset']
         if dataset == 'micc':
@@ -299,10 +333,11 @@ if __name__ == '__main__':
         output_txt = os.path.join(path, '{}.txt'.format(version))
         compile_txt = os.path.join(path, 'COMPILED {} {}.txt'.format(args['model'], model[0]))
 
-
+    # create folder and save copy of files
     mkdir(path)
     save_config(path, version, args)
 
+    # log the settings in output file
     write_print(output_txt, '------------ Options -------------')
     for k, v in args.items():
         write_print(output_txt, '{}: {}'.format(str(k), str(v)))
