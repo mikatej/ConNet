@@ -115,13 +115,9 @@ if __name__ == '__main__':
     torch.set_printoptions(threshold=np.nan)
     parser = argparse.ArgumentParser()
 
-    musco_model_names = ['musco_{}_micc_{}x_iter'.format(m, int(i/2)) for m in ['MARUNet', 'CSRNet'] for i in list(range(2,12,2))]
-
     # dataset info
     parser.add_argument('--input_channels', type=int, default=3,
                         help='Number of input channels')
-    # parser.add_argument('--class_count', type=int, default=102,
-    #                     help='Number of classes in dataset')
     parser.add_argument('--dataset', type=str, default='mall',
                         choices=['micc', 'mall', 'pets', 'fdst'],
                         help='Dataset to use')
@@ -131,15 +127,6 @@ if __name__ == '__main__':
     parser.add_argument('--density_sigma', type=str, default='h5py-5',
                         choices=['h5py-3', 'h5py-5'],
                         help='Sigma value for density maps')
-
-    parser.add_argument('--new_size', type=int, default=224,
-                        help='New height and width of input images')
-    parser.add_argument('--means', type=tuple, default=(104, 117, 123),
-                        help='Mean values of the dataset')
-    parser.add_argument('--augment', type=string_to_boolean, default=True,
-                        help='Toggles data augmentation')
-    # parser.add_argument('--base_transform', type=string_to_boolean, default=False,
-    #                     help='Toggles base transformation (mean subtraction)')
 
     # FOR EXPERIMENTS
     parser.add_argument('--augment_exp', type=string_to_boolean, default=False)
@@ -161,7 +148,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1,
                         help='Batch size')
     parser.add_argument('--model', type=str, default='MCNN',
-                        choices=['ConNet_mall', 'ConNet_micc', 'CSRNet', 'MCNN', 'MARUNet', 'CSRNetSKT', 'MARUNetSKT', 'MARUNetMUSCO_mall', 'MARUNetMUSCO_micc', 'CSRNetMUSCO_mall', 'CSRNetMUSCO_micc'] + musco_model_names,
+                        choices=['ConNet_06', 'ConNet_10', 'ConNet_mall', 'ConNet_micc', 'CSRNet', 'MCNN', 'MARUNet', 'CSRNetSKT', 'MARUNetSKT', 'MARUNetMUSCO_mall', 'MARUNetMUSCO_micc', 'CSRNetMUSCO_mall', 'CSRNetMUSCO_micc'] + musco_model_names,
                         help='CNN model to use')
     parser.add_argument('--backbone_model', type=str, default='vgg16',
                         choices=['vgg16', 'ResNet50'],
@@ -213,14 +200,12 @@ if __name__ == '__main__':
     parser.add_argument('--model_test_path', type=str, default='./tests',
                         help='Path for saving test results')
     parser.add_argument('--weights_json_path', type=str, default='best_models.json')
-    parser.add_argument('--group_save_path', type=str, default=None)
 
     # epoch step size
     parser.add_argument('--loss_log_step', type=int, default=1)
     parser.add_argument('--model_save_step', type=int, default=1)
 
     # musco
-    parser.add_argument('--musco_filter_layers', type=string_to_boolean, default='false')
     parser.add_argument('--musco_layers_to_compress', type=str, default='')
     parser.add_argument('--musco_ft_every', type=float, default=10)
     parser.add_argument('--musco_iters', type=int, default=5)

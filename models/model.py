@@ -53,10 +53,10 @@ def get_model(model_config,
 
     model = None
 
-    if model_config == "ConNet_mall":
+    if model_config == "ConNet_mall" or model_config == "ConNet_06":
         model = ConNet_mall(transform=mode.lower() == "train")
 
-    elif model_config == "ConNet_micc":
+    elif model_config == "ConNet_micc" or model_config == "ConNet_10":
         model = ConNet_micc(transform=mode.lower() == "train")
 
     elif model_config == "CSRNet":
