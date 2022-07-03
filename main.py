@@ -148,11 +148,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1,
                         help='Batch size')
     parser.add_argument('--model', type=str, default='MCNN',
-                        choices=['ConNet_06', 'ConNet_10', 'ConNet_mall', 'ConNet_micc', 'CSRNet', 'MCNN', 'MARUNet', 'CSRNetSKT', 'MARUNetSKT', 'MARUNetMUSCO_mall', 'MARUNetMUSCO_micc', 'CSRNetMUSCO_mall', 'CSRNetMUSCO_micc'] + musco_model_names,
+                        choices=['ConNet_04', 'ConNet_08', 'ConNet_mall', 'ConNet_micc', 'CSRNet', 'MCNN', 'MARUNet', 'CSRNetSKT', 'MARUNetSKT', 'MARUNetMUSCO_mall', 'MARUNetMUSCO_micc', 'CSRNetMUSCO_mall', 'CSRNetMUSCO_micc'],
                         help='CNN model to use')
-    parser.add_argument('--backbone_model', type=str, default='vgg16',
-                        choices=['vgg16', 'ResNet50'],
-                        help='If NLT, which backbone model to use')
     parser.add_argument('--pretrained_model', type=str,
                         default=None,
                         help='Pre-trained model')

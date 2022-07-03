@@ -29,72 +29,48 @@ class ConNet(nn.Module):
         self.sf = save_feature
 
         self.front0_0 = make_layers([channel[0]], in_channels=3, batch_norm=bn, NL=self.NL)
-        if self.transform:
-            self.front0_transform = feature_transform(channel[0], 64)
         self.front0_1 = make_layers([channel[0]], in_channels=channel[0], batch_norm=bn, NL=self.NL)
-        
+
         self.pool1 = pool_layers()
-        if self.transform:
-            self.front1_transform = feature_transform(channel[0], 64)
         self.front1 =make_layers([channel[1], channel[1]], in_channels=channel[0], batch_norm=bn, NL=self.NL)
-        
+
         self.pool2 = pool_layers()
-        if self.transform:
-            self.front2_transform = feature_transform(channel[1], 128)
         self.front2 = make_layers([channel[2], channel[2], channel[2]], in_channels=channel[1], batch_norm=bn, NL=self.NL)
-        
+
         self.pool3 = pool_layers()
-        if self.transform:
-            self.front3_transform = feature_transform(channel[2], 256)
         self.front3 = make_layers([[(64,8), (8,9), (9,128)], [(128,8), (8,8), (8,128)], [(128,8), (8,8), (8,128)]], in_channels=channel[2], batch_norm=bn, NL=self.NL)
-        
+
         self.pool4 = pool_layers()
-        if self.transform:
-            self.front4_transform = feature_transform(channel[3], 512)
         self.front4 = make_layers([[(128,8), (8,8), (8,128)], [(128,8), (8,8), (8,128)], [(128,8), (8,8), (8,128)]], in_channels=channel[3], batch_norm=bn, NL=self.NL)
-                
+
         self.brg_0 = make_layers([channel[3]], in_channels=channel[3], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        if self.transform:
-            self.brg_transform = feature_transform(channel[3], 512)
-                
+
         self.back4 = make_layers([[(256,8), (8,8), (8,128)]], in_channels=channel[4], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-       
+
         self.back3 = make_layers([[(256,8), (8,8), (8,64)]], in_channels=channel[4], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        if self.transform:
-            self.back3_transform = feature_transform(channel[2], 256)
-                
+
         self.back2 = make_layers([[(128,8), (8,8), (8,32)]], in_channels=channel[3], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         self.back1 = make_layers([channel[0]], in_channels=channel[2], dilation=True, batch_norm=bn, NL=self.NL, se=se)
         self.back0 = make_layers([channel[0]], in_channels=channel[1], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        
+
         print('objective dmp+amp!')
         self.amp_conv4_0 = make_layers([channel[2]], in_channels=channel[3], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        if self.transform:
-            self.amp_conv4_transform = feature_transform(channel[2], 256)
-                
+
         self.amp_conv3 = make_layers([channel[2]], in_channels=channel[2], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        if self.transform:
-            self.amp_conv3_transform = feature_transform(channel[2], 256)
 
         self.amp_conv2_0 = make_layers([channel[1]], in_channels=channel[2], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        if self.transform:
-            self.amp_conv2_transform = feature_transform(channel[1], 128)
-                
+
         self.amp_conv1 = make_layers([channel[1]], in_channels=channel[1], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        if self.transform:
-            self.amp_conv1_transform = feature_transform(channel[1], 128)
 
         self.amp_conv0 = make_layers([channel[0]], in_channels=channel[1], dilation=True, batch_norm=bn, NL=self.NL, se=se)
-        if self.transform:
-            self.amp_conv0_transform = feature_transform(channel[0], 64)
-        
+
         self.amp_outconv4 = nn.Conv2d(channel[2], 1, kernel_size=3,padding=1)
         self.amp_outconv3 = nn.Conv2d(channel[2], 1, kernel_size=3,padding=1)
         self.amp_outconv2 = nn.Conv2d(channel[1], 1, kernel_size=3,padding=1)
         self.amp_outconv1 = nn.Conv2d(channel[1], 1, kernel_size=3,padding=1)
         self.amp_outconv0 = nn.Conv2d(channel[0], 1, kernel_size=3,padding=1)
         self.sgm = nn.Sigmoid()
-        
+
         self.outconvb = nn.Conv2d(channel[3],1,3,padding=1)
         self.outconv4 = nn.Conv2d(channel[3],1,3,padding=1)
         self.outconv3 = nn.Conv2d(channel[2],1,3,padding=1)
@@ -102,7 +78,7 @@ class ConNet(nn.Module):
         self.outconv1 = nn.Conv2d(channel[0],1,3,padding=1)
         self.output_layer = nn.Conv2d(channel[0], 1, kernel_size=1)
         self.load_model = load_model
-        
+
         self._initialize_weights()
         self.features = []
 
@@ -110,91 +86,67 @@ class ConNet(nn.Module):
     def forward(self, x_in):
         self.features = []
 
-                                                        
+
         x0 = self.front0_0(x_in)
-        if self.transform:
-            self.features.append(self.front0_transform(x0))
         x0 = self.front0_1(x0)
 
         x1 = self.pool1(x0)
-        if self.transform:
-            self.features.append(self.front1_transform(x1))
         x1 = self.front1(x1)
 
         x2 = self.pool2(x1)
-        if self.transform:
-            self.features.append(self.front2_transform(x2))
         x2 = self.front2(x2)
 
         x3 = self.pool3(x2)
-        if self.transform:
-            self.features.append(self.front3_transform(x3))
         x3 = self.front3(x3)
 
         x4 = self.pool4(x3)
-        if self.transform:
-            self.features.append(self.front4_transform(x4))
         x4 = self.front4(x4)
 
         x_brg = self.brg_0(x4)
-        if self.transform:
-            self.features.append(self.brg_transform(x_brg))
 
-        
-        
+
 
         #calculate attention maps
         amp_d4 = self.amp_conv4_0(x_brg)#1/16,256
-        if self.transform:
-            self.features.append(self.amp_conv4_transform(amp_d4))        
         amp4 = self.sgm(self.amp_outconv4(amp_d4))#1/16,1
-        
+
         amp_d3 = F.interpolate(amp_d4, x3.shape[2:], mode='bilinear')#1/8,256
         amp_d3 = self.amp_conv3(amp_d3)#1/8,256
-        if self.transform:
-            self.features.append(self.amp_conv3_transform(amp_d3))
         amp3 = self.sgm(self.amp_outconv3(amp_d3))#1/8,1
-        
+
         amp_d2 = F.interpolate(amp_d3, x2.shape[2:], mode='bilinear')#1/4,256
         amp_d2 = self.amp_conv2_0(amp_d2)#1/4,128
-        if self.transform:
-            self.features.append(self.amp_conv2_transform(amp_d2))
         amp2 = self.sgm(self.amp_outconv2(amp_d2))#1/4,1
-        
+
         amp_d1 = F.interpolate(amp_d2, x1.shape[2:], mode='bilinear')#1/2,128
         amp_d1 = self.amp_conv1(amp_d1)#1/2,128
-        if self.transform:
-            self.features.append(self.amp_conv1_transform(amp_d1))
         amp1 = self.sgm(self.amp_outconv1(amp_d1))#1/2,1
-        
+
         amp_d0 = F.interpolate(amp_d1, x0.shape[2:], mode='bilinear')#1,128
         amp_d0 = self.amp_conv0(amp_d0)#1,64
-        if self.transform:
-            self.features.append(self.amp_conv0_transform(amp_d0))
         amp0 = self.sgm(self.amp_outconv0(amp_d0))#1,1
         del amp_d4, amp_d3, amp_d2, amp_d1, amp_d0
-        
+
         xb4 = torch.cat([x_brg, x4], 1)#1/16, 1024
         if self.sf:
             self.xb4_before = xb4
-        xb4 = xb4 * amp4         
+        xb4 = xb4 * amp4
 
         if self.sf:
             self.xb4_after = xb4
         xb4 = self.back4(xb4) #1/16 size, 512
-        
+
         #calculate density maps
         xb3 = F.interpolate(xb4, size=[x_in.shape[2]//8, x_in.shape[3]//8], mode='bilinear') #1/8 size, 512]
-        
+
         xb3 = torch.cat([x3, xb3], dim=1) #1/8 size, 1024
         if self.sf:
             self.xb3_before = xb3
-        xb3 = xb3 * amp3         
+        xb3 = xb3 * amp3
 
         if self.sf:
             self.xb3_after = xb3
         xb3 = self.back3(xb3) #1/8 size, 256
-        self.features.append(self.back3_transform(xb3))
         
         xb2 = F.interpolate(xb3, size=[x_in.shape[2]//4, x_in.shape[3]//4], mode='bilinear') #1/4 size, 256
         

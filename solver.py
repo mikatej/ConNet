@@ -97,8 +97,10 @@ class Solver(object):
         """
 
         num_params = 0
-        for p in model.parameters():
-            num_params += p.numel()
+        for name, param in model.named_parameters():
+            if 'transform' in name:
+                continue
+            num_params += param.data.numel()
         write_print(self.output_txt, name)
         write_print(self.output_txt, str(model))
         write_print(self.output_txt,
@@ -113,14 +115,14 @@ class Solver(object):
         if ".pth.tar" not in self.pretrained_model:
             self.pretrained_model = self.pretrained_model.replace('.pth', '')
             self.model.load_state_dict(torch.load(os.path.join(
-                self.model_save_path, '{}.pth'.format(self.pretrained_model))), strict=False)
+                self.model_save_path, '{}.pth'.format(self.pretrained_model))))
         
         # if pretrained model is a .pth.tar file, load weights stored in 'state_dict' and 'optimizer' keys
         else:
             weights = torch.load(os.path.join(
                 self.model_save_path, '{}'.format(self.pretrained_model)))
             self.model.load_state_dict(weights['state_dict'])
-            self.optimizer.load_state_dict(weights['optimizer'])
+            # self.optimizer.load_state_dict(weights['optimizer'])
 
         write_print(self.output_txt,
                     'loaded trained model {}'.format(self.pretrained_model))
@@ -169,11 +171,13 @@ class Solver(object):
         """
         path = os.path.join(
             self.model_save_path,
-            '{}/{}.pth.tar'.format(self.version, e + 1)
+            '{}/{}.pth'.format(self.version, e+1)
         )
 
+        # torch.save(self.model.state_dict, path)
         torch.save({'state_dict': copy.deepcopy(self.model.state_dict()),
-            'optimizer': copy.deepcopy(self.optimizer.state_dict())}, path)
+            'optimizer': copy.deepcopy(self.optimizer.state_dict())
+            }, path)
 
     def model_step(self, images, targets, epoch):
         """
