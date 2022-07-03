@@ -28,7 +28,7 @@ Further details can be specified through the options. Alternatively, these optio
 ### Options
 
     --mode [STR]                        Mode of execution.
-                                        Options: train, val, test, pred
+                                        Options: train, val, test
 
 #### Dataset Options
     --dataset [STR]                     Dataset to be used for training / testing.
@@ -88,10 +88,12 @@ The compression technique to be used can be specified through the `--compression
     --skt_student_chkpt [STR]           File path to student model's weights to continue training
                                         (.pth.tar file). Default: None
     --skt_num_epochs [INT]              Number of epochs to train the student model. Default: 1000
+    
     --skt_lamb_fsp [INT]                Weight of the summation of MSE loss between teacher and 
                                         student features. Default: 0.5
     --skt_lamb_cos [INT]                Weight of the summation of cross entropy loss between
                                         teacher and student features. Default: 0.5
+    
     --skt_print_freq [INT]              Prints updates regarding the losses every N iterations of
                                         every epoch. Default: 200
     --skt_save_freq [INT]               Saves the weights every N epochs trained. Default: 0
