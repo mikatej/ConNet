@@ -3,6 +3,17 @@
 
 Condensed Network (ConNet) is a fast, efficient, and robust crowd counting model. It has two configurations: ConNet-04 with 447k parameters and ConNet-08 with 869k parameters.
 
+## Contents
+
+- [Training / Validating / Testing](#training--validating--testing)
+    - [Options](#options)
+        - [Dataset Options](#dataset-options)
+        - [Training Options](#training-options)
+        - [Testing Options](#testing-options)
+- [Compressing](#compressing)
+    - [Compression Options](#compression-options)
+    - [MUSCO Options](#musco-options)
+    - [SKT Options](#skt-options)
 
 ## Training / Validating / Testing
 
@@ -54,7 +65,7 @@ To compress an existing model, run main.py with the `--use_compress` option set 
 
 Similarly, these options can be directly modified on the `main.py` file.
 
-#### Compression Options 
+### Compression Options 
 
 The compression technique to be used can be specified through the `--compression` option. Further options regarding technique-specific details can be seen in the following subsections.
 
