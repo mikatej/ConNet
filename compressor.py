@@ -139,8 +139,10 @@ class Compressor(object):
         '''
 
         num_params = 0
-        for p in model.parameters():
-            num_params += p.numel()
+        for name, param in model.named_parameters():
+            if 'transform' in name:
+                continue
+            num_params += param.data.numel()
         write_print(self.output_txt,
                     'The number of parameters: {}'.format(num_params))
 
