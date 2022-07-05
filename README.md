@@ -4,7 +4,10 @@
 Condensed Network (ConNet) is a fast, efficient, and robust crowd counting model. It has two configurations: ConNet-04 with 447k parameters and ConNet-08 with 869k parameters. The architecture of both configurations are as shown below.
 
 ![Architecture of ConNet-04](connet-04.png "Architecture of ConNet-04")
+**Figure 1.** Architecture of ConNet-04
+
 ![Architecture of ConNet-08](connet-08.png "Architecture of ConNet-08")
+**Figure 2.** Architecture of ConNet-08
 
 ConNet has been evaluated on the Mall and MICC datasets. In the table below, we show the results of ConNet, as well as CSRNet and MARUNet.
 
