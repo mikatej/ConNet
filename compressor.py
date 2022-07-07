@@ -155,12 +155,16 @@ class Compressor(object):
         if ".pth.tar" not in self.pretrained_model:
             self.pretrained_model = self.pretrained_model.replace('.pth', '')
             self.model.load_state_dict(torch.load(os.path.join(
-                '{}.pth'.format(self.pretrained_model))))
-
-        # if pretrained model is a .pth.tar file, load weights stored in 'state_dict' key
+                self.model_save_path, '{}.pth'.format(self.pretrained_model))), strict=False)
+        
+        # if pretrained model is a .pth.tar file, load weights stored in 'state_dict' and 'optimizer' keys
         else:
-            weights = torch.load('{}'.format(self.pretrained_model))
-            self.model.load_state_dict(weights['state_dict'])
+            weights = torch.load(os.path.join(
+                self.model_save_path, '{}'.format(self.pretrained_model)))
+            self.model.load_state_dict(weights['state_dict'], strict=False)
+
+            if self.mode == 'train' and 'optimizer' in weights.keys():
+                self.optimizer.load_state_dict(weights['optimizer'])
 
         write_print(self.output_txt,
                     'loaded trained model {}'.format(self.pretrained_model))
