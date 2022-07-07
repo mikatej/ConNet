@@ -97,6 +97,13 @@ The compression technique to be used can be specified through the `--compression
 
     --compression [STR]                 Compression technique to use.
                                         Options: musco, skt 
+
+    ----weights_json_path [STR]         File path to where best weights of a model on a dataset
+                                        is saved. File should be a nested JSON with the dataset
+                                        name as the keys ('mall', 'micc') at level 1, the model
+                                        name as the keys (ex: 'CSRNet', 'MARUNet') at level 2,
+                                        and 'path' as the innermost key where the file path to 
+                                        the .pth / .pth.tar file is saved.
     
 #### MUSCO Options 
 
