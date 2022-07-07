@@ -128,12 +128,6 @@ if __name__ == '__main__':
                         choices=['h5py-3', 'h5py-5'],
                         help='Sigma value for density maps')
 
-    # FOR EXPERIMENTS
-    parser.add_argument('--augment_exp', type=string_to_boolean, default=False)
-    parser.add_argument('--brightness_change', type=float, default=0)
-    parser.add_argument('--resolution_scale', type=float, default=1)
-    parser.add_argument('--outdoor', type=string_to_boolean, default=False)
-
     # training settings
     parser.add_argument('--lr', type=float, default=1e-4,
                         help='Learning rate')
@@ -167,40 +161,28 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, default='train',
                         choices=['train', 'val', 'test', 'pred'],
                         help='Mode of execution')
+    parser.add_argument('--use_gpu', type=string_to_boolean, default=True,
+                        help='Toggles the use of GPU')
+
+    # epoch step size
+    parser.add_argument('--loss_log_step', type=int, default=1)
+    parser.add_argument('--model_save_step', type=int, default=1)
+
+    # for experiments
+    parser.add_argument('--augment_exp', type=string_to_boolean, default=False)
+    parser.add_argument('--brightness_change', type=float, default=0)
+    parser.add_argument('--resolution_scale', type=float, default=1)
+    parser.add_argument('--outdoor', type=string_to_boolean, default=False)
+
+
+    ############# COMPRESSION #############
+
     parser.add_argument('--use_compress', type=string_to_boolean, default='false',
                         help='Toggles execution of compression technique')
     parser.add_argument('--compression', type=str, default='musco',
                         choices=['skt', 'musco'],
                         help='Compression technique to use if use_compress is true')
-    parser.add_argument('--use_gpu', type=string_to_boolean, default=True,
-                        help='Toggles the use of GPU')
-
-    # mall dataset
-    parser.add_argument('--mall_data_path', type=str,
-                        default='../../CCCMIS/Datasets/mall_dataset/',
-                        help='Mall dataset path')
-
-    # micc dataset
-    parser.add_argument('--micc_data_path', type=str,
-                        default='../../CCCMIS/Datasets/MICC/',
-                        help='MICC dataset path')
-
-
-    # fdst dataset
-    parser.add_argument('--fdst_data_path', type=str,
-                        default='../../CCCMIS/Datasets/FDST/',
-                        help='FDST dataset path')
-
-    # path
-    parser.add_argument('--model_save_path', type=str, default='./weights',
-                        help='Path for saving weights')
-    parser.add_argument('--model_test_path', type=str, default='./tests',
-                        help='Path for saving test results')
     parser.add_argument('--weights_json_path', type=str, default='best_models.json')
-
-    # epoch step size
-    parser.add_argument('--loss_log_step', type=int, default=1)
-    parser.add_argument('--model_save_step', type=int, default=1)
 
     # musco
     parser.add_argument('--musco_layers_to_compress', type=str, default='')
@@ -217,6 +199,27 @@ if __name__ == '__main__':
     parser.add_argument('--skt_lamb_cos', type=float, default=0.5)
     parser.add_argument('--skt_print_freq', type=int, default=200)
     parser.add_argument('--skt_save_freq', type=int, default=0)
+
+
+    ############# FILE PATHS #############
+    parser.add_argument('--model_save_path', type=str, default='./weights',
+                        help='Path for saving weights')
+    parser.add_argument('--model_test_path', type=str, default='./tests',
+                        help='Path for saving test results')
+
+    # mall dataset
+    parser.add_argument('--mall_data_path', type=str,
+                        default='../../CCCMIS/Datasets/mall_dataset/',
+                        help='Mall dataset path')
+    # micc dataset
+    parser.add_argument('--micc_data_path', type=str,
+                        default='../../CCCMIS/Datasets/MICC/',
+                        help='MICC dataset path')
+    # fdst dataset
+    parser.add_argument('--fdst_data_path', type=str,
+                        default='../../CCCMIS/Datasets/FDST/',
+                        help='FDST dataset path')
+
 
     config = parser.parse_args()
 
